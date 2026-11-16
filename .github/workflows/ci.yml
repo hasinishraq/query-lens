@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Tier 0 + 1: lint, types, unit tests and the mocked agent loop on the small warehouse.
+  tier01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run pyright
+      - name: build small warehouse
+        run: uv run python -m bazaar_world.generate --size small --out data/ --no-metadata
+      - name: world check
+        run: uv run python -m bazaar_world.check --size small
+      - name: tests
+        run: uv run pytest -q -m "not full"
+
+  # Tier 2: real model (Mistral free tier) on 60 fixed dev items, full size. PRs only.
+  tier2:
+    if: github.event_name == 'pull_request'
+    needs: tier01
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: build full warehouse
+        run: uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+      - name: restore LLM cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/llm
+          key: llm-cache-${{ github.head_ref }}-${{ github.sha }}
+          restore-keys: |
+            llm-cache-${{ github.head_ref }}-
+            llm-cache-
+      - name: eval tier-2 sample
+        if: env.MISTRAL_API_KEY != ''
+        run: uv run evalkit run --slice ci --size full --repeats 1 --config ci --run-id ci-${{ github.sha }}
+      - name: gate
+        if: env.MISTRAL_API_KEY != ''
+        run: uv run evalkit gate --run ci-${{ github.sha }} --markdown gate.md
+      - name: comment on PR
+        if: always() && env.MISTRAL_API_KEY != '' && hashFiles('gate.md') != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: gate.md

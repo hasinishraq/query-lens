@@ -1,0 +1,52 @@
+name: tier3-scheduled
+
+# Tier 3 (CLAUDE.md 8.8): all dev slices, full size, 3 repeats, judges, red team. Scheduled on weekends,
+# sized to the free quotas, and resumable (`--resume`).
+on:
+  schedule:
+    - cron: "0 20 * * 5"   # Friday 20:00 UTC = Saturday 02:00 Dhaka
+  workflow_dispatch:
+    inputs:
+      resume:
+        description: "run id to resume (optional)"
+        required: false
+
+jobs:
+  tier3:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: uv sync --frozen
+      - run: uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+      - uses: actions/cache@v4
+        with:
+          path: |
+            .cache/llm
+            data/quota.sqlite
+          key: tier3-${{ github.run_id }}
+          restore-keys: tier3-
+      - name: dev slices, 3 repeats
+        run: |
+          if [ -n "${{ github.event.inputs.resume }}" ]; then
+            uv run evalkit run --resume "${{ github.event.inputs.resume }}"
+          else
+            uv run evalkit run --slice dev --size full --repeats 3 --config b_mistral --judges
+          fi
+      - name: red team
+        run: npx --yes promptfoo@latest redteam run -c redteam/promptfooconfig.yaml || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tier3-results
+          path: results/

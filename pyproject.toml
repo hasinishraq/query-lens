@@ -1,0 +1,95 @@
+[project]
+name = "querylens"
+version = "0.1.0"
+description = "Evaluation-driven development of a text-to-SQL analyst agent on BazaarDW"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "duckdb>=1.1",
+    "pyarrow>=16",
+    "pandas>=2.2",
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "sqlglot>=25",
+    "rank-bm25>=0.2.2",
+    "pydantic>=2.7",
+    "pyyaml>=6",
+    "openai>=1.40",
+    "faker>=25",
+    "matplotlib>=3.8",
+    "streamlit>=1.36",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+# Embedding half of the hybrid retriever. Without it the retriever runs BM25-only and says so.
+embeddings = ["sentence-transformers>=3.0"]
+
+[project.scripts]
+querylens = "querylens.cli:main"
+evalkit = "evalkit.cli:main"
+bazaar-world = "bazaar_world.generate:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "pyright>=1.1.370",
+    "pre-commit>=3.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/querylens", "src/bazaar_world", "evalkit"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"world" = "world"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["latex_source", "data", "results"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "T20"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["querylens", "evalkit", "bazaar_world"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T20"]
+"app/*" = ["T20"]
+"**/cli.py" = ["T20"]
+"world/generate.py" = ["T20"]
+"world/check.py" = ["T20"]
+"world/dictionary_check.py" = ["T20"]
+"scripts/*" = ["T20"]
+
+[tool.pyright]
+include = ["src", "evalkit", "world", "app"]
+extraPaths = ["src", "."]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+reportMissingModuleSource = false
+reportAttributeAccessIssue = "warning"
+reportArgumentType = "warning"
+reportCallIssue = "warning"
+reportOptionalMemberAccess = "warning"
+reportIndexIssue = "warning"
+reportReturnType = "warning"
+reportPossiblyUnbound = "warning"
+reportOperatorIssue = "warning"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "full: needs the full-size warehouse (data/bazaar_full.duckdb)",
+]
