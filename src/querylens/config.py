@@ -35,6 +35,7 @@ class Provider(BaseModel):
     key_env: str | None
     family: str
     daily_reset_tz: str = "UTC"
+    supports_seed: bool = True  # Gemini's OpenAI-compatible endpoint rejects `seed` (HTTP 400)
     account_limits: Limits | None = None
     models: list[ModelSpec]
 

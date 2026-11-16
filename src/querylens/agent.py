@@ -152,6 +152,24 @@ class Agent:
                     if res.tokens_in + est_in > b.max_input_tokens and res.n_llm_calls > 0:
                         res.status, res.stop_reason = "budget_exhausted", "max_input_tokens"
                         break
+                    left = b.max_llm_calls - res.n_llm_calls
+                    if left == 2 and res.n_llm_calls > 0:
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": "[harness] 2 turns left: run your SQL now, then call "
+                                "final_answer (or ask_user).",
+                            }
+                        )
+                    elif left == 1 and res.n_llm_calls > 0:
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": "[harness] Last turn: call final_answer now with what "
+                                "you have, or ask_user.",
+                            }
+                        )
+                    self._compress_history(messages)
                     chain = self._chain(escalated)
                     with Span(
                         "llm",
@@ -176,8 +194,24 @@ class Agent:
                         )
                     self._account(res, resp)
                     if not resp.tool_calls:
-                        # no tool call: treat the text as the answer
-                        res.final_text = resp.content or ""
+                        text = (resp.content or "").strip()
+                        if not text and res.n_llm_calls < b.max_llm_calls:
+                            messages.append({"role": "assistant", "content": ""})
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": "[harness] Call final_answer with the numbers "
+                                    "from your last result.",
+                                }
+                            )
+                            continue
+                        # no tool call: the text is the answer; keep the last successful query as the final SQL
+                        res.final_text = text
+                        for t in reversed(res.tool_calls):
+                            if t.name == "run_sql" and not t.error and t.meta.get("sql"):
+                                res.final_sql = t.meta["sql"]
+                                res.final_rows = t.meta.get("result_rows", [])[:200]
+                                break
                         res.status, res.stop_reason = "answered", "text_reply"
                         break
                     messages.append(self._assistant_msg(resp))
@@ -259,6 +293,19 @@ class Agent:
                 )
         return res
 
+    @staticmethod
+    def _compress_history(messages: list[dict[str, Any]], keep_last: int = 2, max_chars: int = 600) -> None:
+        """Token diet: tool outputs older than the last ``keep_last`` are cut to ``max_chars`` characters."""
+        idx = [
+            i
+            for i, m in enumerate(messages)
+            if m.get("role") == "tool" or str(m.get("content", "")).startswith("Result of ")
+        ]
+        for i in idx[:-keep_last] if keep_last else idx:
+            c = str(messages[i].get("content", ""))
+            if len(c) > max_chars:
+                messages[i] = {**messages[i], "content": c[:max_chars] + " ...[older output trimmed]"}
+
     def _should_escalate(self, tr: Any) -> bool:
         on = set(self.cfg.cascade.escalate_on) if self.cfg.cascade else set()
         if tr.name != "run_sql":
@@ -291,6 +338,7 @@ class Agent:
                     "id": tc.id,
                     "type": "function",
                     "function": {"name": tc.name, "arguments": tc.raw_arguments or json.dumps(tc.arguments)},
+                    **(tc.extra or {}),
                 }
                 for tc in resp.tool_calls
             ],

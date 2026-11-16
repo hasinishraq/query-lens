@@ -16,17 +16,24 @@ providers:
     key_env: GEMINI_API_KEY
     family: gemini
     daily_reset_tz: America/Los_Angeles
+    supports_seed: false
     models:
-      - id: gemini-flash-latest          # verify in AI Studio
-        limits: {rpm: 10, rpd: 250, tpm: 250000}
-      - id: gemini-flash-lite-latest     # verify in AI Studio
+      # limits: conservative placeholders -- read the real per-model RPM/RPD in AI Studio and update
+      - id: gemini-3.5-flash-lite
         limits: {rpm: 15, rpd: 1000, tpm: 250000}
+      - id: gemini-flash-lite-latest
+        limits: {rpm: 15, rpd: 1000, tpm: 250000}
+      - id: gemini-flash-latest          # returned 503 (overloaded) on 2026-11-16
+        limits: {rpm: 10, rpd: 250, tpm: 250000}
   groq:
     base_url: https://api.groq.com/openai/v1
     key_env: GROQ_API_KEY
     family: gpt-oss          # family of the model, not the host
     models:
+      # limits confirmed from x-ratelimit headers on 2026-11-16 (1000 req/day, 8000 tokens/min)
       - id: openai/gpt-oss-120b
+        limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
+      - id: openai/gpt-oss-20b
         limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
   openrouter:
     base_url: https://openrouter.ai/api/v1
@@ -34,8 +41,8 @@ providers:
     family: mixed
     account_limits: {rpm: 20, rpd: 50}
     models:
-      - id: meta-llama/llama-3.3-70b-instruct:free
-        family: llama
+      - id: nvidia/nemotron-3-ultra-550b-a55b:free
+        family: nemotron
         limits: {}
   ollama:
     base_url: http://localhost:11434/v1

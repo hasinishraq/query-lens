@@ -46,6 +46,9 @@ class ToolCall(BaseModel):
     name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
     raw_arguments: str = ""
+    extra: dict[str, Any] | None = (
+        None  # provider-specific fields to echo back (e.g. Gemini thought_signature)
+    )
 
 
 class LLMResponse(BaseModel):
@@ -247,7 +250,7 @@ class LLMClient:
             send_msgs = [{"role": "system", "content": tools_as_text(tools)}, *messages]
             send_tools = None
         p = {"temperature": params.temperature, "max_tokens": params.max_tokens}
-        if params.seed is not None:
+        if params.seed is not None and self.providers[ref.provider].supports_seed:
             p["seed"] = params.seed
         key = cache_key(ref.provider, ref.model, send_msgs, send_tools, p)
         if self.mode != "refresh":
@@ -286,7 +289,8 @@ class LLMClient:
                 continue
             except openai.APIStatusError as e:
                 self.limiter.record(row, 0)
-                raise _GiveUp(f"HTTP {e.status_code}: {str(e)[:200]}") from e
+                body = getattr(getattr(e, "response", None), "text", "") or ""
+                raise _GiveUp(f"HTTP {e.status_code}: {str(e)[:120]} {body[:300]}") from e
             latency = time.perf_counter() - t0
             resp = self._parse(raw, ref, native, latency, attempt)
             self.limiter.record(row, resp.tokens_in + resp.tokens_out)
@@ -321,12 +325,14 @@ class LLMClient:
                     args = {"_value": args}
             except json.JSONDecodeError:
                 args = {"_invalid_json": args_raw}
+            extra = (getattr(tc, "model_extra", None) or {}).get("extra_content")
             calls.append(
                 ToolCall(
                     id=tc.id or f"call-{len(calls)}",
                     name=tc.function.name,
                     arguments=args,
                     raw_arguments=args_raw,
+                    extra={"extra_content": extra} if extra else None,
                 )
             )
         content = msg.content

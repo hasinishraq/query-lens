@@ -186,6 +186,14 @@ def _jsonable(v: Any) -> Any:
     return v
 
 
+def strip_sql(sql: str) -> str:
+    """Remove surrounding whitespace, markdown fences and trailing semicolons (one statement is enforced by the guard)."""
+    s = sql.strip().removeprefix("```sql").removeprefix("```").removesuffix("```").strip()
+    while s.endswith(";"):
+        s = s[:-1].rstrip()
+    return s
+
+
 def truncate(text: str, max_tokens: int) -> str:
     limit = max_tokens * 4
     if len(text) <= limit:
@@ -258,6 +266,12 @@ class Toolbox:
         )
 
     def t_describe_table(self, a: DescribeTableArgs) -> ToolResult:
+        names = [x.strip() for x in a.table.split(",") if x.strip()]
+        if len(names) > 1:
+            parts = [self.t_describe_table(DescribeTableArgs(table=n)) for n in names[:4]]
+            return ToolResult(
+                "describe_table", {"tables": [p.output if not p.error else {"error": p.error} for p in parts]}
+            )
         t = a.table.strip().lower().split(".")[-1]
         if t not in self.schema.tables:
             close = difflib.get_close_matches(t, self.schema.table_names(), n=3, cutoff=0.3)
@@ -343,6 +357,7 @@ class Toolbox:
         return g
 
     def t_explain_sql(self, a: SqlArgs) -> ToolResult:
+        a = SqlArgs(query=strip_sql(a.query))
         g = self._guard(a.query)
         if not g.ok:
             return ToolResult(
@@ -368,6 +383,7 @@ class Toolbox:
         )
 
     def t_run_sql(self, a: SqlArgs) -> ToolResult:
+        a = SqlArgs(query=strip_sql(a.query))
         g = self._guard(a.query)
         if not g.ok:
             return ToolResult(
