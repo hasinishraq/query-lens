@@ -182,11 +182,15 @@ def tab_traces(trace_store: TraceStore, label_store: TraceStore, who: str) -> No
             st.session_state["pos"] = pos + 1
 
         b1, b2 = st.columns(2)
-        b1.button("PASS (p)", on_click=save, args=("PASS",), width="stretch")
-        b2.button("FAIL (f)", on_click=save, args=("FAIL",), width="stretch")
+        b1.button("PASS (p)", on_click=save, args=("PASS",), width="stretch", key="tr-pass")
+        b2.button("FAIL (f)", on_click=save, args=("FAIL",), width="stretch", key="tr-fail")
         n1, n2 = st.columns(2)
-        n1.button("Back (b)", on_click=lambda: st.session_state.update(pos=pos - 1), width="stretch")
-        n2.button("Next (n)", on_click=lambda: st.session_state.update(pos=pos + 1), width="stretch")
+        n1.button(
+            "Back (b)", on_click=lambda: st.session_state.update(pos=pos - 1), width="stretch", key="tr-back"
+        )
+        n2.button(
+            "Next (n)", on_click=lambda: st.session_state.update(pos=pos + 1), width="stretch", key="tr-next"
+        )
     keyboard()
 
 
@@ -248,14 +252,14 @@ def tab_gold(who: str) -> None:
         )
     note = st.text_input("Problem note (if the gold is wrong)", key=f"note-{it.id}")
     b1, b2, b3, b4 = st.columns(4)
-    if b1.button("Verify", width="stretch"):
+    if b1.button("Verify", width="stretch", key="gold-verify"):
         if not who:
             st.error("Enter your initials in the sidebar first.")
         else:
             _save_verification(it.id, who)
             st.session_state["gpos"] = pos + 1
             st.rerun()
-    if b2.button("Flag problem", width="stretch"):
+    if b2.button("Flag problem", width="stretch", key="gold-flag"):
         if not who:
             st.error("Enter your initials in the sidebar first.")
         elif not note.strip():
@@ -264,8 +268,12 @@ def tab_gold(who: str) -> None:
             with open(FLAGS, "a", encoding="utf-8") as f:
                 f.write(json.dumps({"id": it.id, "by": who, "note": note}) + "\n")
             st.success("flagged; Claude will not change gold without your approval")
-    b3.button("Back", on_click=lambda: st.session_state.update(gpos=pos - 1), width="stretch")
-    b4.button("Next", on_click=lambda: st.session_state.update(gpos=pos + 1), width="stretch")
+    b3.button(
+        "Back", on_click=lambda: st.session_state.update(gpos=pos - 1), width="stretch", key="gold-back"
+    )
+    b4.button(
+        "Next", on_click=lambda: st.session_state.update(gpos=pos + 1), width="stretch", key="gold-next"
+    )
 
 
 # --------------------------------------------------------------------------- judge labels tab
@@ -307,8 +315,8 @@ def tab_judges(trace_store: TraceStore, label_store: TraceStore, who: str) -> No
         label_store.add_annotation(it["trace_id"], who, f"judge:{judge}", verdict, critique, [], split=split)
 
     b1, b2 = st.columns(2)
-    b1.button("PASS (p)", on_click=save, args=("PASS",), width="stretch")
-    b2.button("FAIL (f)", on_click=save, args=("FAIL",), width="stretch")
+    b1.button("PASS (p)", on_click=save, args=("PASS",), width="stretch", key="jd-pass")
+    b2.button("FAIL (f)", on_click=save, args=("FAIL",), width="stretch", key="jd-fail")
     keyboard()
 
 
