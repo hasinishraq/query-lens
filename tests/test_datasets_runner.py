@@ -101,3 +101,37 @@ def test_runner_end_to_end_with_oracle(tmp_path, monkeypatch, small_db, n_items)
     )
     lines = (run_dir / "items.jsonl").read_text().splitlines()
     assert len(lines) == n_items
+
+
+class QuotaLLM:
+    """Every call fails as if the provider's free limit were used up."""
+
+    def complete(self, messages, tools, chain, params=None):
+        from querylens.llm import AllModelsFailed
+
+        raise AllModelsFailed("gemini: RateLimitError after 3 attempts")
+
+
+def test_runner_stops_on_rate_limit_without_scoring(tmp_path, monkeypatch, small_db):
+    """A run that hits a provider limit stops and leaves the items unscored for --resume (not counted as wrong)."""
+    import evalkit.runner as R
+    from evalkit.runner import is_provider_stop
+
+    assert is_provider_stop("llm: RateLimitError after 3 attempts")
+    assert is_provider_stop("llm: mistral: no API key (MISTRAL_API_KEY)")
+    assert not is_provider_stop("max_llm_calls")
+    monkeypatch.setattr(R, "RESULTS", tmp_path / "results")
+    items = select_slice("golden:train")[:3]
+    monkeypatch.setattr(R, "select_slice", lambda s: items)
+    run_dir = R.run(
+        "golden:train",
+        "small",
+        1,
+        "b_mistral",
+        run_id="quota-test",
+        llm=QuotaLLM(),  # type: ignore[arg-type]
+        store=TraceStore(tmp_path / "t.sqlite"),
+    )
+    lines = [x for x in (run_dir / "items.jsonl").read_text().splitlines() if x.strip()]
+    assert lines == []
+    assert "Run stopped early" in (run_dir / "report.md").read_text(encoding="utf-8")

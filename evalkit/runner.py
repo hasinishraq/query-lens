@@ -38,6 +38,27 @@ def make_run_id(config: str, slice_name: str, snapshot: str) -> str:
     return f"{datetime.now().strftime('%Y%m%d-%H%M')}-{config}-{slice_name.replace(':', '_')}-{snapshot}"
 
 
+PROVIDER_STOP_MARKERS = (
+    "quota",
+    "ratelimiterror",
+    "rate limit",
+    "429",
+    "no api key",
+    "apiconnectionerror",
+    "internalservererror",
+    "apitimeouterror",
+    "all models failed",
+    "empty model chain",
+)
+
+
+def is_provider_stop(stop_reason: str) -> bool:
+    """True when a run ended because no model could be reached (limits, outages, missing keys), not because the
+    agent answered badly. Such items are not scored; the run stops so it can be resumed later."""
+    s = stop_reason.lower()
+    return s.startswith("llm:") or any(m in s for m in PROVIDER_STOP_MARKERS)
+
+
 def agent_view(res: AgentResult) -> C.AgentView:
     return C.AgentView(
         status=res.status,
@@ -259,8 +280,9 @@ def run(
                     )
                     try:
                         res = agent.run(it.question, scenario_id=it.id, run_id=run_id)
-                        if res.status == "error" and "quota" in res.stop_reason.lower():
-                            raise QuotaExhausted("?", "?", res.stop_reason, "later")
+                        if res.status == "error" and is_provider_stop(res.stop_reason):
+                            # the model never got to answer: stop and leave the item for --resume
+                            raise QuotaExhausted("provider", "model", res.stop_reason[:200], "later")
                         ir = evaluator.score(it, res, run_id, rep)
                     except (QuotaExhausted, AllModelsFailed) as e:
                         stopped = str(e)
