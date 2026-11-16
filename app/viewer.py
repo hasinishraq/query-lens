@@ -256,9 +256,14 @@ def tab_gold(who: str) -> None:
             st.session_state["gpos"] = pos + 1
             st.rerun()
     if b2.button("Flag problem", width="stretch"):
-        with open(FLAGS, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"id": it.id, "by": who, "note": note}) + "\n")
-        st.success("flagged; Claude will not change gold without your approval")
+        if not who:
+            st.error("Enter your initials in the sidebar first.")
+        elif not note.strip():
+            st.error("Write what is wrong with this gold item first.")
+        else:
+            with open(FLAGS, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"id": it.id, "by": who, "note": note}) + "\n")
+            st.success("flagged; Claude will not change gold without your approval")
     b3.button("Back", on_click=lambda: st.session_state.update(gpos=pos - 1), width="stretch")
     b4.button("Next", on_click=lambda: st.session_state.update(gpos=pos + 1), width="stretch")
 
