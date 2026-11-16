@@ -1,0 +1,116 @@
+# BazaarDW distributions (CLAUDE.md section 6.5). All values here are read by the generator;
+# no distribution constant lives in Python code.
+seed: 42
+period: {start: 2024-01-01, end: 2026-10-31}
+timezone: Asia/Dhaka
+utc_offset_hours: 6
+
+customers:
+  one_order_share: 0.35          # customers who order exactly once
+  activity_sigma: 1.3           # lognormal sigma of activity for multi-order customers
+  signup_before_period_share: 0.35
+  signup_earliest: 2022-06-01
+  deleted_share: 0.005
+  verified_share: 0.78
+  gender: {female: 0.46, male: 0.52, other: 0.02}
+  preferred_language: {bn: 0.58, en: 0.42}
+  signup_channel: {app: 0.55, web: 0.33, social_commerce: 0.12}
+  acquisition_source: {organic: 0.38, referral: 0.12, search_ads: 0.14, social_ads: 0.12, campaign: 0.24}
+  extra_address_share: 0.3
+  segments: [new, regular, loyal, vip, at_risk, churned]
+  loyalty_share: 0.45
+
+orders:
+  channel: {app: 0.62, web: 0.30, social_commerce: 0.08}
+  device_by_channel:
+    app: {android: 0.86, ios: 0.14}
+    web: {desktop: 0.45, mobile_web: 0.55}
+    social_commerce: {android: 0.7, ios: 0.08, mobile_web: 0.22}
+  usd_share: 0.012
+  status: {delivered: 0.82, cancelled: 0.07, in_transit: 0.05, returned: 0.03, payment_failed: 0.03}
+  cancel_spelling: {cancelled: 0.6, canceled: 0.4}
+  in_transit_days: 14             # in_transit only for orders in the last N days (see docs/report.md)
+  deleted_share: 0.004
+  items_per_order: {1: 0.30, 2: 0.28, 3: 0.20, 4: 0.12, 5: 0.06, 6: 0.04}
+  quantity: {1: 0.78, 2: 0.17, 3: 0.05}
+  gift_share: 0.03
+  single_seller_share: 0.85
+  monthly_growth: 0.03
+  weekend_multiplier: 1.25
+  hour_weights: [1,0.5,0.3,0.2,0.2,0.3,0.6,1,1.5,2,2.4,2.6,2.6,2.4,2.3,2.3,2.4,2.6,2.8,3.2,3.6,3.6,3,2]
+  seasonality:
+    eid_al_fitr_week: 2.4
+    eid_al_adha_week: 1.8
+    sale_1111: 3.0
+    pohela_boishakh: 1.5
+  sale_1111_2025_margin: 1.35     # F05: 11.11 2025 gets at least this x the busiest other day
+
+holidays:
+  eid_al_fitr: [2024-04-10, 2025-03-31, 2026-03-20]
+  eid_al_adha: [2024-06-17, 2025-06-07, 2026-05-27]
+  fixed: {"02-21": International Mother Language Day, "03-26": Independence Day, "04-14": Pohela Boishakh,
+          "05-01": May Day, "08-15": National Mourning Day, "12-16": Victory Day, "12-25": Christmas Day}
+
+payments:
+  method: {bkash: 0.38, cod: 0.30, nagad: 0.14, card: 0.12, bank_transfer: 0.06}
+  providers:
+    bkash: {bKash: 1.0}
+    nagad: {Nagad: 1.0}
+    card: {SSLCommerz: 0.6, "aamarPay": 0.25, "Stripe": 0.15}
+    bank_transfer: {"City Bank": 0.4, "BRAC Bank": 0.35, "Dutch-Bangla Bank": 0.25}
+    cod: {cash: 1.0}
+  retry_order_share: 0.09
+  retry_weight_by_method: {bkash: 0.45, nagad: 1.3, card: 2.6, bank_transfer: 1.8, cod: 0.0}
+  failed_order_method: {card: 0.45, nagad: 0.3, bank_transfer: 0.25}   # COD orders that failed payment switched method
+  cancelled_without_payment_share: 0.6
+  usd_methods: {card: 0.8, bank_transfer: 0.2}
+
+refunds:
+  return_status: {refunded: 0.92, rejected: 0.05, requested: 0.03}
+  goodwill_reasons: {late_delivery: 0.35, damaged_item: 0.25, missing_item: 0.2, price_adjustment: 0.2}
+  return_reasons: {wrong_size: 0.3, defective: 0.22, not_as_described: 0.2, changed_mind: 0.18, damaged_in_transit: 0.1}
+  goodwill_share_of_total: [0.1, 0.5]
+
+logistics:
+  courier_late_rate:   # courier name -> baseline late rate (6-21%)
+    FastBox: 0.21
+    Pathao Courier: 0.12
+    RedX: 0.10
+    Steadfast: 0.09
+    Paperfly: 0.14
+    eCourier: 0.13
+    Sundarban Courier: 0.18
+    SA Paribahan: 0.16
+    Delivery Tiger: 0.11
+    Bazaar Express: 0.06
+    Bazaar Express Plus: 0.07
+    Janani Express: 0.15
+  courier_share: [0.12, 0.16, 0.14, 0.13, 0.08, 0.07, 0.05, 0.04, 0.06, 0.09, 0.03, 0.03]
+  sla_days: {inside_dhaka: 2, dhaka_suburb: 3, outside_dhaka: 5}
+  fee_bdt: {inside_dhaka: 60, dhaka_suburb: 90, outside_dhaka: 120}
+
+reviews:
+  rating: {5: 0.48, 4: 0.24, 3: 0.11, 2: 0.06, 1: 0.11}
+  delivered_order_review_share: 0.32
+
+catalog:
+  duplicate_name_share: 0.015
+  deleted_share: 0.01
+  imported_share: 0.22
+  price_change_days: 70
+
+sellers:
+  tier_change_share: 0.18
+  tiers: [bronze, silver, gold, platinum]
+  commission: {bronze: 0.12, silver: 0.10, gold: 0.08, platinum: 0.06}
+
+inventory:
+  stockout_base: 0.045
+  stockout_gazipur2_2026: 0.18
+
+web:
+  anonymous_share: 0.4
+  traffic_source: {organic: 0.34, direct: 0.22, paid_search: 0.14, social: 0.18, email: 0.05, referral: 0.07}
+
+support:
+  messages_per_ticket_mean: 5

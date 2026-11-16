@@ -1,0 +1,295 @@
+# BazaarDW semantic layer: 24 official metric definitions (CLAUDE.md section 10).
+# Every `sql` is a reference query for the whole period [:start_date, :end_date] (inclusive Dhaka dates)
+# returning one column `value`. To break a metric down, keep its filters and add GROUP BY.
+# Common rules: exclude is_deleted rows; treat both 'cancelled' and 'canceled'; count only
+# payments.status = 'captured' as money; convert USD with currency_rates on the order date;
+# convert *_utc columns to Dhaka (+6 h) before taking dates; join SCD2 tables at event time.
+# A "valid order" is: NOT is_deleted AND status NOT IN ('cancelled', 'canceled', 'payment_failed').
+
+metrics:
+  gmv:
+    description: Gross merchandise value in BDT of valid orders (after item discounts, before refunds, excluding shipping).
+    grain: order (by Dhaka order date)
+    tables: [orders, currency_rates]
+    excludes: deleted, cancelled (both spellings) and payment_failed orders
+    notes: total_bdt is NULL for USD orders; use total_amount * bdt_per_unit of the order date.
+    sql: |
+      SELECT SUM(COALESCE(o.total_bdt, o.total_amount * cr.bdt_per_unit)) AS value
+      FROM orders o
+      LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  net_revenue:
+    description: Captured payments minus refunds, in BDT, for valid orders placed in the period.
+    grain: order (by Dhaka order date)
+    tables: [orders, payments, refunds]
+    excludes: deleted and cancelled orders; failed, pending and voided payment attempts
+    notes: Aggregate payments and refunds separately before combining, or the join fans out.
+    sql: |
+      WITH o AS (
+        SELECT order_id FROM orders
+        WHERE NOT is_deleted AND status NOT IN ('cancelled', 'canceled', 'payment_failed')
+          AND CAST(order_at AS DATE) BETWEEN :start_date AND :end_date),
+      cap AS (SELECT SUM(p.amount_bdt) AS amt FROM payments p JOIN o ON o.order_id = p.order_id
+              WHERE p.status = 'captured'),
+      ref AS (SELECT SUM(r.amount_bdt) AS amt FROM refunds r JOIN o ON o.order_id = r.order_id)
+      SELECT COALESCE((SELECT amt FROM cap), 0) - COALESCE((SELECT amt FROM ref), 0) AS value
+
+  order_count:
+    description: Number of valid orders.
+    grain: order (by Dhaka order date)
+    tables: [orders]
+    excludes: deleted, cancelled (both spellings) and payment_failed orders
+    notes: ''
+    sql: |
+      SELECT COUNT(*) AS value FROM orders o
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  aov:
+    description: Average order value in BDT = gmv / order_count.
+    grain: order (by Dhaka order date)
+    tables: [orders, currency_rates]
+    excludes: as gmv
+    notes: ''
+    sql: |
+      SELECT AVG(COALESCE(o.total_bdt, o.total_amount * cr.bdt_per_unit)) AS value
+      FROM orders o
+      LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  items_per_order:
+    description: Average units (sum of quantity) per valid order.
+    grain: order (by Dhaka order date)
+    tables: [orders, order_items]
+    excludes: as order_count
+    notes: Units, not line items.
+    sql: |
+      SELECT SUM(oi.quantity) * 1.0 / COUNT(DISTINCT o.order_id) AS value
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  active_customers:
+    description: Distinct customers with at least one valid order in the period.
+    grain: customer
+    tables: [orders]
+    excludes: as order_count
+    notes: ''
+    sql: |
+      SELECT COUNT(DISTINCT o.customer_id) AS value FROM orders o
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  new_customers:
+    description: Customers who signed up in the period (month grain), excluding deleted accounts.
+    grain: customer (by signup month)
+    tables: [customers]
+    excludes: deleted customers
+    notes: The analyst view exposes signup_month only (first day of the month), so this metric has month grain.
+    sql: |
+      SELECT COUNT(*) AS value FROM customers c
+      WHERE NOT c.is_deleted
+        AND c.signup_month BETWEEN date_trunc('month', :start_date) AND :end_date
+
+  repeat_rate:
+    description: Share of active customers in the period with two or more valid orders in the period.
+    grain: customer
+    tables: [orders]
+    excludes: as order_count
+    notes: The 90-day repeat rate of a cohort is a different question; see facts and docs.
+    sql: |
+      WITH c AS (
+        SELECT o.customer_id, COUNT(*) AS n FROM orders o
+        WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+          AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+        GROUP BY 1)
+      SELECT AVG(CASE WHEN n >= 2 THEN 1.0 ELSE 0.0 END) AS value FROM c
+
+  cancellation_rate:
+    description: Cancelled orders (both spellings) / all non-deleted orders placed in the period.
+    grain: order (by Dhaka order date)
+    tables: [orders]
+    excludes: deleted orders
+    notes: payment_failed is not a cancellation.
+    sql: |
+      SELECT AVG(CASE WHEN o.status IN ('cancelled', 'canceled') THEN 1.0 ELSE 0.0 END) AS value
+      FROM orders o
+      WHERE NOT o.is_deleted AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  refund_rate:
+    description: Orders with at least one refund / orders with a captured payment (by order date).
+    grain: order (by Dhaka order date)
+    tables: [orders, payments, refunds]
+    excludes: deleted orders; orders without a captured payment
+    notes: Count orders, not refund rows (an order can have several refunds).
+    sql: |
+      WITH cap AS (SELECT DISTINCT order_id FROM payments WHERE status = 'captured'),
+      ref AS (SELECT DISTINCT order_id FROM refunds)
+      SELECT AVG(CASE WHEN ref.order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS value
+      FROM orders o JOIN cap ON cap.order_id = o.order_id
+      LEFT JOIN ref ON ref.order_id = o.order_id
+      WHERE NOT o.is_deleted AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  return_rate:
+    description: Returned order items / order items of delivered or returned orders (by order date).
+    grain: order item
+    tables: [orders, order_items, returns]
+    excludes: deleted orders; orders that never reached the customer
+    notes: Counts item lines with a return request, whatever the return status.
+    sql: |
+      SELECT COUNT(DISTINCT r.order_item_id) * 1.0 / COUNT(DISTINCT oi.order_item_id) AS value
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      LEFT JOIN returns r ON r.order_item_id = oi.order_item_id
+      WHERE NOT o.is_deleted AND o.status IN ('delivered', 'returned')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  payment_success:
+    description: Captured attempts / (captured + failed) attempts, by Dhaka date of the attempt.
+    grain: payment attempt
+    tables: [payments]
+    excludes: pending and voided attempts
+    notes: created_at_utc is UTC; add 6 hours before taking the date.
+    sql: |
+      SELECT SUM(CASE WHEN p.status = 'captured' THEN 1 ELSE 0 END) * 1.0
+             / SUM(CASE WHEN p.status IN ('captured', 'failed') THEN 1 ELSE 0 END) AS value
+      FROM payments p
+      WHERE CAST(p.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
+
+  cod_share:
+    description: Share of orders with a captured payment whose captured payment is cash on delivery.
+    grain: order (by Dhaka order date)
+    tables: [orders, payments]
+    excludes: deleted orders; orders without a captured payment
+    notes: ''
+    sql: |
+      SELECT AVG(CASE WHEN p.method = 'cod' THEN 1.0 ELSE 0.0 END) AS value
+      FROM orders o JOIN payments p ON p.order_id = o.order_id AND p.status = 'captured'
+      WHERE NOT o.is_deleted AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  late_delivery_rate:
+    description: Share of delivered shipments whose Dhaka delivery date is after promised_date.
+    grain: shipment (by Dhaka delivery date)
+    tables: [shipments, orders]
+    excludes: undelivered shipments (delivered_at_utc IS NULL); shipments of deleted orders
+    notes: For a seller breakdown join DISTINCT (order_id, seller_id) from order_items; shipments have no seller.
+    sql: |
+      SELECT AVG(CASE WHEN CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) > s.promised_date
+                      THEN 1.0 ELSE 0.0 END) AS value
+      FROM shipments s JOIN orders o ON o.order_id = s.order_id
+      WHERE s.status = 'delivered' AND s.delivered_at_utc IS NOT NULL AND NOT o.is_deleted
+        AND CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
+
+  avg_delivery_days:
+    description: Average days from shipping to delivery (Dhaka dates) for delivered shipments.
+    grain: shipment (by Dhaka delivery date)
+    tables: [shipments, orders]
+    excludes: as late_delivery_rate
+    notes: ''
+    sql: |
+      SELECT AVG(date_diff('day', CAST(s.shipped_at_utc + INTERVAL 6 HOUR AS DATE),
+                           CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE))) AS value
+      FROM shipments s JOIN orders o ON o.order_id = s.order_id
+      WHERE s.status = 'delivered' AND s.delivered_at_utc IS NOT NULL AND NOT o.is_deleted
+        AND CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
+
+  active_sellers:
+    description: Distinct sellers with at least one item in a valid order in the period.
+    grain: seller
+    tables: [orders, order_items]
+    excludes: as order_count
+    notes: ''
+    sql: |
+      SELECT COUNT(DISTINCT oi.seller_id) AS value
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  seller_payout:
+    description: Net amount owed to sellers = gross_bdt - commission_bdt, by payout month.
+    grain: seller-month
+    tables: [seller_payouts]
+    excludes: ''
+    notes: Includes payouts not paid yet (paid_at IS NULL); filter on paid_at for cash paid.
+    sql: |
+      SELECT SUM(sp.gross_bdt - sp.commission_bdt) AS value FROM seller_payouts sp
+      WHERE sp.period_start BETWEEN date_trunc('month', :start_date) AND :end_date
+
+  promo_redemption_rate:
+    description: Share of valid orders that used a promotion.
+    grain: order (by Dhaka order date)
+    tables: [orders]
+    excludes: as order_count
+    notes: ''
+    sql: |
+      SELECT AVG(CASE WHEN o.promo_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS value FROM orders o
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  discount_cost:
+    description: Total promotion discount in BDT given on valid orders.
+    grain: order (by Dhaka order date)
+    tables: [orders, order_items]
+    excludes: as order_count
+    notes: Equals the sum of promotion_redemptions.discount_bdt over valid orders.
+    sql: |
+      SELECT SUM(oi.discount_bdt) AS value
+      FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+      WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')
+        AND CAST(o.order_at AS DATE) BETWEEN :start_date AND :end_date
+
+  session_conversion:
+    description: Web sessions that placed an order / all web sessions, by Dhaka session start date.
+    grain: session
+    tables: [web_sessions]
+    excludes: ''
+    notes: Website only; app orders have no sessions.
+    sql: |
+      SELECT AVG(CASE WHEN ws.converted_order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS value
+      FROM web_sessions ws
+      WHERE CAST(ws.started_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
+
+  avg_rating:
+    description: Average review rating (1-5) of non-deleted products, by review date.
+    grain: review
+    tables: [product_reviews, products]
+    excludes: reviews of deleted products
+    notes: ''
+    sql: |
+      SELECT AVG(r.rating) AS value
+      FROM product_reviews r JOIN products p ON p.product_id = r.product_id
+      WHERE NOT p.is_deleted AND CAST(r.created_at AS DATE) BETWEEN :start_date AND :end_date
+
+  ticket_resolution_h:
+    description: Average hours from ticket creation to resolution, for resolved tickets, by Dhaka creation date.
+    grain: ticket
+    tables: [support_tickets]
+    excludes: open tickets (resolved_at_utc IS NULL)
+    notes: ''
+    sql: |
+      SELECT AVG(date_diff('second', t.created_at_utc, t.resolved_at_utc) / 3600.0) AS value
+      FROM support_tickets t
+      WHERE t.resolved_at_utc IS NOT NULL
+        AND CAST(t.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
+
+  stockout_rate:
+    description: Share of weekly inventory snapshot rows with on_hand_units = 0.
+    grain: warehouse-variant-week
+    tables: [inventory_snapshots]
+    excludes: ''
+    notes: ''
+    sql: |
+      SELECT AVG(CASE WHEN s.on_hand_units = 0 THEN 1.0 ELSE 0.0 END) AS value FROM inventory_snapshots s
+      WHERE s.snapshot_date BETWEEN :start_date AND :end_date
+
+  points_redeemed:
+    description: Loyalty points redeemed (sum of points of redeem transactions).
+    grain: loyalty transaction (by Dhaka date)
+    tables: [loyalty_transactions]
+    excludes: earn and expire transactions
+    notes: points is positive for every txn_type.
+    sql: |
+      SELECT SUM(lt.points) AS value FROM loyalty_transactions lt
+      WHERE lt.txn_type = 'redeem' AND CAST(lt.txn_at AS DATE) BETWEEN :start_date AND :end_date

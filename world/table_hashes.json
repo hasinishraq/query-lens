@@ -1,0 +1,292 @@
+{
+  "full_seed42": {
+    "tables": {
+      "brands": {
+        "hash": "3637870590934636964512",
+        "rows": 400
+      },
+      "calendar_dim": {
+        "hash": "9660821935612247141548",
+        "rows": 1035
+      },
+      "categories": {
+        "hash": "2836036682531150457407",
+        "rows": 300
+      },
+      "cities": {
+        "hash": "586848516226298633284",
+        "rows": 64
+      },
+      "couriers": {
+        "hash": "105272664495486894067",
+        "rows": 12
+      },
+      "currency_rates": {
+        "hash": "9468848121392003295318",
+        "rows": 1035
+      },
+      "customer_addresses": {
+        "hash": "120324432710428777166750",
+        "rows": 13000
+      },
+      "customer_segment_history": {
+        "hash": "146442137524389435407862",
+        "rows": 16000
+      },
+      "customers": {
+        "hash": "92678198451153670956472",
+        "rows": 10000
+      },
+      "inventory_snapshots": {
+        "hash": "369202902880712554303904",
+        "rows": 40000
+      },
+      "loyalty_accounts": {
+        "hash": "42014278941544849344933",
+        "rows": 4500
+      },
+      "loyalty_transactions": {
+        "hash": "333858743541092700748801",
+        "rows": 36000
+      },
+      "marketing_campaigns": {
+        "hash": "1127373718010496301916",
+        "rows": 120
+      },
+      "order_items": {
+        "hash": "1288391151028461268472076",
+        "rows": 140000
+      },
+      "order_status_events": {
+        "hash": "1572395152635391325350796",
+        "rows": 170000
+      },
+      "orders": {
+        "hash": "504739850869301945274412",
+        "rows": 55000
+      },
+      "payments": {
+        "hash": "536274542923250487378070",
+        "rows": 58000
+      },
+      "product_price_history": {
+        "hash": "277342212662630175065432",
+        "rows": 30000
+      },
+      "product_reviews": {
+        "hash": "166938437125116040073895",
+        "rows": 18000
+      },
+      "product_variants": {
+        "hash": "101021258851491033365724",
+        "rows": 11000
+      },
+      "products": {
+        "hash": "37122581051953123875230",
+        "rows": 4000
+      },
+      "promotion_redemptions": {
+        "hash": "138563695870236436476204",
+        "rows": 15000
+      },
+      "promotions": {
+        "hash": "3582918175667060133994",
+        "rows": 400
+      },
+      "refunds": {
+        "hash": "30345722753594621395788",
+        "rows": 3300
+      },
+      "regions": {
+        "hash": "83498384090934567658",
+        "rows": 8
+      },
+      "returns": {
+        "hash": "23822261590302916612150",
+        "rows": 2600
+      },
+      "seller_payouts": {
+        "hash": "83661670721203810640901",
+        "rows": 9000
+      },
+      "seller_tier_history": {
+        "hash": "6373039230704961661691",
+        "rows": 700
+      },
+      "sellers": {
+        "hash": "2751235538078609197916",
+        "rows": 300
+      },
+      "shipment_events": {
+        "hash": "1382978030598956826296714",
+        "rows": 150000
+      },
+      "shipments": {
+        "hash": "518041860933400982872482",
+        "rows": 56000
+      },
+      "support_messages": {
+        "hash": "230955378318866082228067",
+        "rows": 25000
+      },
+      "support_tickets": {
+        "hash": "45808166318955823579219",
+        "rows": 5000
+      },
+      "warehouses": {
+        "hash": "126149086144606233024",
+        "rows": 12
+      },
+      "web_sessions": {
+        "hash": "1106397307378066693899465",
+        "rows": 120000
+      }
+    },
+    "total_rows": 995786
+  },
+  "small_seed42": {
+    "tables": {
+      "brands": {
+        "hash": "348807492196262127628",
+        "rows": 40
+      },
+      "calendar_dim": {
+        "hash": "9660821935612247141548",
+        "rows": 1035
+      },
+      "categories": {
+        "hash": "2836036682531150457407",
+        "rows": 300
+      },
+      "cities": {
+        "hash": "586848516226298633284",
+        "rows": 64
+      },
+      "couriers": {
+        "hash": "105272664495486894067",
+        "rows": 12
+      },
+      "currency_rates": {
+        "hash": "9468848121392003295318",
+        "rows": 1035
+      },
+      "customer_addresses": {
+        "hash": "11740596017191693468286",
+        "rows": 1300
+      },
+      "customer_segment_history": {
+        "hash": "14755485024088293407953",
+        "rows": 1600
+      },
+      "customers": {
+        "hash": "8826942222821551694272",
+        "rows": 1000
+      },
+      "inventory_snapshots": {
+        "hash": "37510681627632737796187",
+        "rows": 4000
+      },
+      "loyalty_accounts": {
+        "hash": "4264780321303351039234",
+        "rows": 450
+      },
+      "loyalty_transactions": {
+        "hash": "33041926593773809154610",
+        "rows": 3600
+      },
+      "marketing_campaigns": {
+        "hash": "1127373718010496301916",
+        "rows": 120
+      },
+      "order_items": {
+        "hash": "128833081267771251600116",
+        "rows": 14000
+      },
+      "order_status_events": {
+        "hash": "157392822504070184777096",
+        "rows": 17000
+      },
+      "orders": {
+        "hash": "50832093938469343161448",
+        "rows": 5500
+      },
+      "payments": {
+        "hash": "52891690925932187973131",
+        "rows": 5800
+      },
+      "product_price_history": {
+        "hash": "27596227680943403292867",
+        "rows": 3000
+      },
+      "product_reviews": {
+        "hash": "16529680077004811908369",
+        "rows": 1800
+      },
+      "product_variants": {
+        "hash": "9930778586587966297633",
+        "rows": 1100
+      },
+      "products": {
+        "hash": "3728203382482715024220",
+        "rows": 400
+      },
+      "promotion_redemptions": {
+        "hash": "13888889477778295146956",
+        "rows": 1500
+      },
+      "promotions": {
+        "hash": "3582918175667060133994",
+        "rows": 400
+      },
+      "refunds": {
+        "hash": "3016075466687336649101",
+        "rows": 330
+      },
+      "regions": {
+        "hash": "83498384090934567658",
+        "rows": 8
+      },
+      "returns": {
+        "hash": "2363483837469283616066",
+        "rows": 260
+      },
+      "seller_payouts": {
+        "hash": "8248476320937799397158",
+        "rows": 900
+      },
+      "seller_tier_history": {
+        "hash": "608326789280097808819",
+        "rows": 70
+      },
+      "sellers": {
+        "hash": "291520266301324074710",
+        "rows": 30
+      },
+      "shipment_events": {
+        "hash": "137949483049265374858673",
+        "rows": 15000
+      },
+      "shipments": {
+        "hash": "51584188696463850811637",
+        "rows": 5600
+      },
+      "support_messages": {
+        "hash": "23063543614097464496447",
+        "rows": 2500
+      },
+      "support_tickets": {
+        "hash": "4505943880549834045511",
+        "rows": 500
+      },
+      "warehouses": {
+        "hash": "126149086144606233024",
+        "rows": 12
+      },
+      "web_sessions": {
+        "hash": "111428546507656666990298",
+        "rows": 12000
+      }
+    },
+    "total_rows": 102266
+  }
+}
