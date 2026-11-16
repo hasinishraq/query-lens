@@ -199,7 +199,8 @@ const children = [
   p("Write your taxonomy and counts in `docs/error_analysis.md`."),
 
   h1("10. Red team (optional, needs Node.js)"),
-  code(["cd redteam", "set PROMPTFOO_PYTHON=..\\.venv\\Scripts\\python.exe        (PowerShell: $env:PROMPTFOO_PYTHON=\"..\\.venv\\Scripts\\python.exe\")",
+  code(["cd redteam", "# Command Prompt:", "set PROMPTFOO_PYTHON=..\\.venv\\Scripts\\python.exe",
+        "# PowerShell:", "$env:PROMPTFOO_PYTHON = \"..\\.venv\\Scripts\\python.exe\"",
         "npx --yes promptfoo@0.125.1 redteam run -c promptfooconfig.yaml", "cd ..",
         "uv run evalkit run --slice adv --size full --config e_gemini_lite"]),
   gap(),
