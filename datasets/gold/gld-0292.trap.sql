@@ -1,1 +1,1 @@
-SELECT AVG(CASE WHEN resolved_at_utc - created_at_utc <= INTERVAL 24 HOUR THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-01-31' AND resolved_at_utc IS NOT NULL
+SELECT AVG(CASE WHEN TIMESTAMPDIFF(SECOND, created_at_utc, resolved_at_utc) <= 86400 THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-01-31' AND resolved_at_utc IS NOT NULL

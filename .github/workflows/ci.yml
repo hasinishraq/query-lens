@@ -13,6 +13,20 @@ jobs:
   tier01:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_ADMIN_USER: root
+      MYSQL_ADMIN_PASSWORD: ci-root-password
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -31,14 +45,29 @@ jobs:
       - name: tests
         run: uv run pytest -q -m "not full"
 
-  # Tier 2: real model (Mistral free tier) on 60 fixed dev items, full size. PRs only.
+  # Tier 2: real model (Gemini free tier, config ci) on 60 fixed dev items, full size. PRs only.
   tier2:
     if: github.event_name == 'pull_request'
     needs: tier01
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_ADMIN_USER: root
+      MYSQL_ADMIN_PASSWORD: ci-root-password
     steps:
       - uses: actions/checkout@v4
         with:
@@ -48,7 +77,9 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen
       - name: build full warehouse
-        run: uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+        run: |
+          uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+          uv run evalkit datasets gold --snapshots full
       - name: restore LLM cache
         uses: actions/cache@v4
         with:
@@ -58,13 +89,13 @@ jobs:
             llm-cache-${{ github.head_ref }}-
             llm-cache-
       - name: eval tier-2 sample
-        if: env.MISTRAL_API_KEY != ''
+        if: env.GEMINI_API_KEY != ''
         run: uv run evalkit run --slice ci --size full --repeats 1 --config ci --run-id ci-${{ github.sha }}
       - name: gate
-        if: env.MISTRAL_API_KEY != ''
+        if: env.GEMINI_API_KEY != ''
         run: uv run evalkit gate --run ci-${{ github.sha }} --markdown gate.md
       - name: comment on PR
-        if: always() && env.MISTRAL_API_KEY != '' && hashFiles('gate.md') != ''
+        if: always() && env.GEMINI_API_KEY != '' && hashFiles('gate.md') != ''
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           path: gate.md

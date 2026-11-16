@@ -5,7 +5,6 @@ description = "Evaluation-driven development of a text-to-SQL analyst agent on B
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "duckdb>=1.1",
     "pyarrow>=16",
     "pandas>=2.2",
     "numpy>=1.26",
@@ -19,6 +18,8 @@ dependencies = [
     "matplotlib>=3.8",
     "streamlit>=1.36",
     "python-dotenv>=1.0",
+    "pymysql>=1.2.4",
+    "cryptography>=50.0.2",
 ]
 
 [project.optional-dependencies]
@@ -91,5 +92,5 @@ reportOperatorIssue = "warning"
 testpaths = ["tests"]
 addopts = "-q"
 markers = [
-    "full: needs the full-size warehouse (data/bazaar_full.duckdb)",
+    "full: needs the full-size warehouse (MySQL database bazaar_full)",
 ]

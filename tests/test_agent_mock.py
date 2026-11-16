@@ -48,7 +48,7 @@ def store(tmp_path):
 
 def _agent(analyst_db, store, script):
     llm = ScriptedLLM(script)
-    a = Agent(load_config("b_mistral"), role="analyst", size="small", llm=llm, store=store, db=analyst_db)  # type: ignore[arg-type]
+    a = Agent(load_config("b_mistral"), role="analyst", size="small", llm=llm, store=store)  # type: ignore[arg-type]
     return a, llm
 
 

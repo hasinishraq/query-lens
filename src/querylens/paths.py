@@ -16,7 +16,8 @@ RUBRICS = ROOT / "rubrics"
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 
 
-def db_path(size: str, role: str = "analyst") -> Path:
-    if role == "admin":
-        return DATA / f"bazaar_{size}.duckdb"
-    return DATA / f"bazaar_{size}__{role}.duckdb"
+def db_name(size: str, role: str = "analyst") -> str:
+    """MySQL database name for a size and role (``bazaar_full_analyst``; ``admin`` -> base ``bazaar_full``)."""
+    from bazaar_world.mysqldb import db_name as _db_name
+
+    return _db_name(size, None if role == "admin" else role)

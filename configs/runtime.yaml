@@ -1,10 +1,8 @@
 # Runtime limits shared by tools, guard and runner (no magic numbers in code).
 sql:
   timeout_s: 10
-  memory_limit: 1GB
   max_rows: 1000
   explain_row_threshold: 200000   # estimated rows above this without LIMIT/aggregation are rejected
-  threads: 2
 retriever:
   default_k: 10
   bm25_weight: 0.5

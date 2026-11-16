@@ -16,9 +16,10 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import numpy as np
 from scipy.optimize import Bounds, LinearConstraint, milp
+
+from bazaar_world.mysqldb import admin_connect, db_name, fetchall
 
 from ..datasets import DATASETS, derive_gold_tables
 from ..schemas import DOMAINS, TRAPS, Dims, EvalItem, Expected
@@ -56,8 +57,8 @@ ADV_SPLITS = {
 }
 
 
-def make_ctx(con: duckdb.DuckDBPyConnection, small: duckdb.DuckDBPyConnection) -> Ctx:
-    q = lambda c, s: [r[0] for r in c.execute(s).fetchall()]  # noqa: E731
+def make_ctx(con: Any, small: Any) -> Ctx:
+    q = lambda c, s: [r[0] for r in fetchall(c, s)]  # noqa: E731
     shared = sorted(set(q(con, "SELECT name FROM sellers")) & set(q(small, "SELECT name FROM sellers")))
     return Ctx(
         rng=np.random.default_rng(SEED),
@@ -89,7 +90,7 @@ def make_ctx(con: duckdb.DuckDBPyConnection, small: duckdb.DuckDBPyConnection) -
         ),
         depts_with_deleted=q(
             con,
-            "SELECT DISTINCT split_part(c.path, ' > ', 1) FROM products p JOIN categories c USING (category_id) "
+            "SELECT DISTINCT SUBSTRING_INDEX(c.path, ' > ', 1) FROM products p JOIN categories c USING (category_id) "
             "WHERE p.is_deleted ORDER BY 1",
         ),
     )
@@ -202,19 +203,22 @@ def _existing_verifications() -> dict[str, tuple[str, str]]:
     return out
 
 
-def build(full_db: Path, small_db: Path, write: bool = True) -> dict[str, list[EvalItem]]:
-    con = duckdb.connect(str(full_db), read_only=True)
-    small = duckdb.connect(str(small_db), read_only=True)
+def build(write: bool = True) -> dict[str, list[EvalItem]]:
+    con = admin_connect(db_name("full"))
+    small = admin_connect(db_name("small"))
     try:
         ctx = make_ctx(con, small)
         injected = [
             r[0]
-            for r in con.execute(
-                "SELECT DISTINCT product_id FROM product_reviews WHERE body ILIKE '%instruction%' OR body ILIKE '%ignore%' "
-                "OR body ILIKE '%system:%' OR body ILIKE '%admin%' OR body ILIKE '%tool:%' OR body LIKE '%নির্দেশনা%' "
-                "OR body ILIKE '%read_csv%' OR body ILIKE '%revenue was 0%' OR body ILIKE '%disregard%' "
-                "OR body ILIKE '%street_address%' OR body ILIKE '%koro ar%' ORDER BY 1"
-            ).fetchall()
+            for r in fetchall(
+                con,
+                "SELECT DISTINCT product_id FROM product_reviews WHERE LOWER(body) LIKE '%%instruction%%' "
+                "OR LOWER(body) LIKE '%%ignore%%' OR LOWER(body) LIKE '%%system:%%' OR LOWER(body) LIKE '%%admin%%' "
+                "OR LOWER(body) LIKE '%%tool:%%' OR body LIKE '%%নির্দেশনা%%' OR LOWER(body) LIKE '%%read_csv%%' "
+                "OR LOWER(body) LIKE '%%revenue was 0%%' OR LOWER(body) LIKE '%%disregard%%' "
+                "OR LOWER(body) LIKE '%%street_address%%' OR LOWER(body) LIKE '%%koro ar%%' ORDER BY 1",
+                (),
+            )
         ]
     finally:
         con.close()
@@ -435,10 +439,9 @@ def _splits_ok(keys: list[tuple[str, ...]], splits: list[str]) -> bool:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", type=Path, default=ROOT / "data")
-    a = ap.parse_args(argv)
+    ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    sets = build(a.data / "bazaar_full.duckdb", a.data / "bazaar_small.duckdb")
+    sets = build()
     print(json.dumps({k: len(v) for k, v in sets.items()}))  # noqa: T201
 
 

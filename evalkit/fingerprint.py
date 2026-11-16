@@ -1,8 +1,12 @@
-"""Order-independent result fingerprints (design doc 9.2).
+"""Order-independent result fingerprints (design doc 9.2), computed in Python over MySQL results.
 
-A fingerprint ignores row order, column order and column names, rounds floats, lower-cases text and
-counts duplicate rows (hashes are summed, not XOR-ed). It is computed in DuckDB so large results never
-enter Python. :func:`rows_fingerprint` does the same for rows already in memory (agent answers).
+A fingerprint ignores row order, column order and column names, rounds numbers, lower-cases text, treats a
+timestamp at midnight like the same date, and counts duplicate rows (row hashes are summed, not XOR-ed).
+Results are streamed from MySQL, so large results are never held in memory as a whole.
+
+:func:`multi_fingerprint` returns three fingerprints at the same precision with rounding phases shifted by
+1/3 of a step; two results match if any phase agrees, which absorbs float-sum noise that lands exactly on a
+rounding boundary while keeping the tolerance at about 10^-digits.
 """
 
 from __future__ import annotations
@@ -10,80 +14,105 @@ from __future__ import annotations
 import hashlib
 import math
 from collections import Counter
-from datetime import date, datetime
+from collections.abc import Iterable, Iterator
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
-import duckdb
+import pymysql
+import pymysql.cursors
 
-FLOAT_TYPES = ("DOUBLE", "FLOAT", "REAL")
-
-
-def sql_fingerprint(
-    con: duckdb.DuckDBPyConnection, sql: str, digits: int = 4, shift: float = 0.0
-) -> tuple[int, str, list[str]]:
-    """(row count, content hash, sorted column types) of a query result. ``shift`` offsets numbers by a fraction
-    of the rounding step before rounding (used for the boundary-safe second fingerprint)."""
-    rel = con.sql(sql)
-    cols = rel.columns
-    types = [str(t) for t in rel.types]
-    vals = []
-    for col, typ in zip(cols, types, strict=True):
-        c = '"' + col.replace('"', '""') + '"'
-        if (
-            typ in FLOAT_TYPES
-            or typ.startswith("DECIMAL")
-            or typ in ("HUGEINT", "BIGINT", "INTEGER", "SMALLINT", "TINYINT", "UBIGINT", "UINTEGER")
-        ):
-            off = f" + {shift * 10**-digits!r}" if shift else ""
-            vals.append(f"CAST(ROUND(CAST({c} AS DOUBLE){off}, {digits}) AS VARCHAR)")
-        elif typ.startswith("TIMESTAMP"):
-            # a timestamp at midnight compares equal to the same DATE (date_trunc vs CAST AS DATE)
-            ts = f"CAST({c} AS TIMESTAMP)"
-            vals.append(
-                f"CASE WHEN CAST({ts} AS TIME) = TIME '00:00:00' THEN strftime({ts}, '%Y-%m-%d') "
-                f"ELSE strftime({ts}, '%Y-%m-%d %H:%M:%S') END"
-            )
-        elif typ == "DATE":
-            vals.append(f"strftime({c}, '%Y-%m-%d')")
-        elif typ == "BOOLEAN":
-            vals.append(f"CASE WHEN {c} THEN 'true' ELSE 'false' END")
-        else:
-            vals.append(f"LOWER(TRIM(CAST({c} AS VARCHAR)))")
-    row = "list_sort([" + ", ".join(f"COALESCE({v}, 'null')" for v in vals) + "])"
-    n, h = con.execute(
-        f"SELECT COUNT(*), COALESCE(SUM(HASH({row})::HUGEINT), 0) FROM ({sql}) AS _t"
-    ).fetchone()  # type: ignore[misc]
-    return int(n), str(h), sorted(types)
+PHASES: tuple[tuple[str, float], ...] = (("d", 0.0), ("h", 1 / 3), ("t", 2 / 3))
+MAX_ROWS = 2_000_000
 
 
-def _norm(v: Any, digits: int) -> str:
-    if v is None:
-        return "null"
+def _num(v: Any) -> float | None:
     if isinstance(v, bool):
-        return "true" if v else "false"
+        return 1.0 if v else 0.0
     if isinstance(v, (int, float, Decimal)):
         f = float(v)
-        if math.isnan(f):
-            return "null"
-        r = round(f, digits)
+        return None if math.isnan(f) else f
+    return None
+
+
+def _norm(v: Any, digits: int, shift: float = 0.0) -> str:
+    if v is None:
+        return "null"
+    f = _num(v)
+    if f is not None:
+        r = round(f + shift * 10.0**-digits, digits)
         return repr(0.0 if r == 0 else r)
     if isinstance(v, datetime):
-        if (v.hour, v.minute, v.second) == (0, 0, 0):
+        if (v.hour, v.minute, v.second, v.microsecond) == (0, 0, 0, 0):
             return v.strftime("%Y-%m-%d")
         return v.strftime("%Y-%m-%d %H:%M:%S")
     if isinstance(v, date):
         return v.isoformat()
+    if isinstance(v, (time, timedelta)):
+        return str(v)
+    if isinstance(v, (bytes, bytearray)):
+        v = v.decode("utf-8", "replace")
     s = str(v).strip().lower()
     try:
-        f = float(s.replace(",", ""))
-        return repr(round(f, digits))
+        r = round(float(s.replace(",", "")) + shift * 10.0**-digits, digits)
+        return repr(0.0 if r == 0 else r)
     except ValueError:
         return s
 
 
+def _row_hash(row: Iterable[Any], digits: int, shift: float) -> int:
+    key = "\x1f".join(sorted(_norm(v, digits, shift) for v in row))
+    return int.from_bytes(hashlib.blake2b(key.encode("utf-8"), digest_size=8).digest(), "little")
+
+
+def rows_multi_fingerprint(rows: Iterable[Any], digits: int = 4) -> dict[str, list[Any]]:
+    n = 0
+    sums = {name: 0 for name, _ in PHASES}
+    for r in rows:
+        n += 1
+        vals = list(r) if isinstance(r, (list, tuple)) else [r]
+        for name, shift in PHASES:
+            sums[name] = (sums[name] + _row_hash(vals, digits, shift)) % (1 << 64)
+    return {name: [n, str(h)] for name, h in sums.items()}
+
+
+def multi_fingerprint(con: pymysql.connections.Connection, sql: str, digits: int = 4) -> dict[str, list[Any]]:
+    """Fingerprints of a query result, streamed from MySQL."""
+    cur = con.cursor(pymysql.cursors.SSCursor)
+    try:
+        cur.execute(sql)
+
+        def gen() -> Iterator[tuple[Any, ...]]:
+            for k, r in enumerate(cur):
+                if k >= MAX_ROWS:
+                    raise ValueError(f"result has more than {MAX_ROWS:,} rows; too large to fingerprint")
+                yield r
+
+        return rows_multi_fingerprint(gen(), digits)
+    finally:
+        cur.close()
+
+
+def sql_fingerprint(
+    con: pymysql.connections.Connection, sql: str, digits: int = 4
+) -> tuple[int, str, list[str]]:
+    """(row count, content hash, column type codes) for a single rounding phase."""
+    with con.cursor() as cur:
+        cur.execute(sql)
+        types = sorted(str(d[1]) for d in cur.description or [])
+        rows = cur.fetchall()
+    fp = rows_multi_fingerprint(rows, digits)["d"]
+    return int(fp[0]), str(fp[1]), types
+
+
+def fp_match(a: dict[str, list[Any]] | None, b: dict[str, list[Any]] | None) -> bool:
+    if not a or not b:
+        return False
+    return any(k in b and list(a[k]) == list(b[k]) for k in a)
+
+
 def rows_fingerprint(rows: list[list[Any]] | list[tuple[Any, ...]], digits: int = 4) -> tuple[int, str]:
-    """Python-side fingerprint (row count + multiset hash) for in-memory rows."""
+    """Single-phase fingerprint for in-memory rows (row count + multiset hash)."""
     c: Counter[str] = Counter()
     for r in rows:
         key = "\x1f".join(sorted(_norm(v, digits) for v in (r if isinstance(r, (list, tuple)) else [r])))
@@ -105,12 +134,13 @@ def result_match(
         vals = list(r) if isinstance(r, (list, tuple)) else [r]
         out: list[Any] = []
         for v in vals:
-            if isinstance(v, bool) or v is None:
-                out.append(("s", str(v).lower()))
-            elif isinstance(v, (int, float, Decimal)):
-                out.append(("n", float(v)))
+            f = _num(v)
+            if f is not None:
+                out.append(("n", f))
+            elif v is None:
+                out.append(("s", "none"))
             else:
-                out.append(("s", str(v).strip().lower()))
+                out.append(("s", _norm(v, 6)))
         return sorted(out, key=lambda x: (x[0], x[1] if x[0] == "s" else ""))
 
     def row_eq(a: list[Any], b: list[Any]) -> bool:
@@ -140,20 +170,3 @@ def result_match(
         else:
             return False
     return True
-
-
-def multi_fingerprint(con: duckdb.DuckDBPyConnection, sql: str, digits: int = 4) -> dict[str, list[Any]]:
-    """Three fingerprints at the same precision: plain rounding and rounding after 1/3 and 2/3 step shifts. Results
-    match if either agrees, which absorbs float-sum noise that lands exactly on a rounding boundary while keeping
-    the tolerance at about 10^-digits."""
-    out: dict[str, list[Any]] = {}
-    for name, shift in (("d", 0.0), ("h", 1 / 3), ("t", 2 / 3)):
-        n, h, _ = sql_fingerprint(con, sql, digits=digits, shift=shift)
-        out[name] = [n, h]
-    return out
-
-
-def fp_match(a: dict[str, list[Any]] | None, b: dict[str, list[Any]] | None) -> bool:
-    if not a or not b:
-        return False
-    return any(k in b and list(a[k]) == list(b[k]) for k in a)

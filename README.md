@@ -17,7 +17,8 @@ warehouse for a fictional Bangladeshi marketplace. Free models only, $0 API spen
      (dictionary.yaml) (24 metrics)    (sqlglot + role DB,    | CI gate -> PR comment          |
                                         read-only, no files)  +-------------------------------+
                               |
-              BazaarDW (DuckDB): 35 tables, 266 columns, 995,786 rows (full) / 102,266 (small)
+              BazaarDW (MySQL 8): 35 tables, 266 columns, 995,786 rows (full) / 102,266 (small)
+              role databases + read-only MySQL users per role (analyst, support, finance)
               planted facts F01-F08, data traps, 65 prompt-injection rows
 ```
 
@@ -69,6 +70,8 @@ uv run evalkit run --slice dev --size full --config b_mistral
 
 ## Setup
 
+0. MySQL 8 running locally; put the admin account in `.env` (`MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_ADMIN_USER`,
+   `MYSQL_ADMIN_PASSWORD`). The generator creates the databases and the read-only role users.
 1. `uv sync` (Python 3.11+). Optional embeddings for the hybrid retriever: `uv sync --extra embeddings`.
 2. Copy `.env.example` to `.env` and add free-tier keys (Mistral, Gemini, Groq, OpenRouter) or install Ollama.
 3. `uv run querylens models-check` to confirm the configured free models still exist.

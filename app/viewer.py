@@ -23,8 +23,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import duckdb
 import pandas as pd
+import pyarrow.parquet as pq
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -188,6 +188,24 @@ def get_agent(config: str, role: str, size: str):  # noqa: ANN201
     return Agent(load_config(config), role=role, size=size, store=stores()[0])
 
 
+def warehouse_ready(size: str) -> bool:
+    try:
+        from bazaar_world.mysqldb import admin_connect, db_name, fetchall
+
+        con = admin_connect()
+        try:
+            rows = fetchall(
+                con,
+                "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME IN (%s, %s)",
+                (db_name(size), db_name(size, "analyst")),
+            )
+        finally:
+            con.close()
+        return rows[0][0] == 2
+    except Exception:  # noqa: BLE001 - MySQL down means "not ready"
+        return False
+
+
 def runs_list() -> list[Path]:
     return sorted(
         [p for p in RESULTS.glob("*") if (p / "run.json").exists()],
@@ -214,7 +232,7 @@ def pretty_sql(sql: str) -> str:
     try:
         import sqlglot
 
-        return sqlglot.transpile(sql, read="duckdb", write="duckdb", pretty=True)[0]
+        return sqlglot.transpile(sql, read="mysql", write="mysql", pretty=True)[0]
     except Exception:  # noqa: BLE001 - show the original text if it does not parse
         return sql
 
@@ -301,7 +319,7 @@ def project_status() -> dict:
 
     provs = load_providers()
     keys = [n for n, p in provs.items() if p.enabled and n != "ollama"]
-    built = (DATA / "bazaar_full.duckdb").exists() and (DATA / "bazaar_full__analyst.duckdb").exists()
+    built = warehouse_ready("full")
     items = load_all()
     gold_items = [i for i in items if i.gold_sql_file and i.set in ("golden", "adversarial")]
     verified = sum(1 for i in gold_items if i.verified_by)
@@ -341,7 +359,7 @@ def page_home() -> None:
             bool(s["keys"]),
             False,
         ),
-        ("Build the data", "warehouse ready" if s["built"] else "run the generator", s["built"], False),
+        ("Build the data", "MySQL warehouse ready" if s["built"] else "run the generator", s["built"], False),
         (
             "Check gold answers",
             f"{s['verified']} of {s['gold_total']} verified",
@@ -375,7 +393,10 @@ def page_home() -> None:
     nxt = next((k for k, x in enumerate(steps) if not x[2]), None)
     advice = {
         0: ("Add at least one free API key to the <code>.env</code> file, then reload this page.", None),
-        1: ("Build the warehouse: <code>uv run python -m bazaar_world.generate --size full</code>.", None),
+        1: (
+            "Start MySQL, then build the warehouse: <code>uv run python -m bazaar_world.generate --size full</code>.",
+            None,
+        ),
         2: (
             "Open <b>Check gold</b> and verify the dev and test items. Only verified items count in reported scores.",
             "page_gold",
@@ -840,10 +861,12 @@ def page_gold() -> None:
                 st.code(pretty_sql(variant_sql(it, "trap") or "-"), language="sql")
     with right:
         st.markdown("**Result**")
-        pq = DATASETS / "gold_results" / (snap or "full") / f"{Path(it.gold_sql_file or '').stem}.parquet"
-        if pq.exists():
+        pq_path = (
+            DATASETS / "gold_results" / (snap or "full") / f"{Path(it.gold_sql_file or '').stem}.parquet"
+        )
+        if pq_path.exists():
             st.dataframe(
-                duckdb.sql(f"SELECT * FROM read_parquet('{pq.as_posix()}') LIMIT 50").df(),
+                pq.read_table(pq_path).to_pandas().head(50),
                 width="stretch",
                 hide_index=True,
             )
@@ -979,40 +1002,43 @@ def page_summary() -> None:
 
 # --------------------------------------------------------------------------- Browse data
 def page_data() -> None:
+    from bazaar_world.mysqldb import db_name, fetchall, role_connect
     from querylens.retriever import load_dictionary
 
     st.title("Browse data")
     st.markdown(
-        "<p class='ql-lead'>A read-only look at the BazaarDW warehouse, as each role sees it.</p>",
+        "<p class='ql-lead'>A read-only look at the BazaarDW warehouse in MySQL, exactly as each role sees it.</p>",
         unsafe_allow_html=True,
     )
     c1, c2 = st.columns(2)
     role = c1.segmented_control("Role", ["analyst", "support", "finance"], default="analyst")
     size = c2.segmented_control("Data size", ["full", "small"], default="full")
-    path = DATA / f"bazaar_{size}__{role}.duckdb"
-    if not path.exists():
-        st.error(f"{path.name} is missing. Build the warehouse first.")
+    if not role or not size:
         return
-    st.caption(f"File: {path}")
-    con = duckdb.connect(str(path), read_only=True)
     try:
-        tables = [
-            r[0]
-            for r in con.execute("SELECT table_name FROM information_schema.tables ORDER BY 1").fetchall()
-        ]
+        con = role_connect(size, role)
+    except Exception as e:  # noqa: BLE001 - explain connection problems in plain words
+        st.error(
+            f"Cannot connect to MySQL as the {role} user: {e}. Is MySQL running, and was the warehouse built?"
+        )
+        return
+    st.caption(f"MySQL database {db_name(size, role)}, connected as read-only user ql_{role}.")
+    try:
+        tables = [r[0] for r in fetchall(con, "SHOW FULL TABLES")]
         d = load_dictionary()["tables"]
         table = st.selectbox(
             "Table", tables, format_func=lambda t: f"{t}: {d.get(t, {}).get('description', '')}"
         )
-        n = con.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0]  # type: ignore[index]
+        n = fetchall(con, f"SELECT COUNT(*) FROM `{table}`")[0][0]
         st.metric("Rows", f"{n:,}")
         for note in d.get(table, {}).get("notes", []):
             st.caption(f"Note: {note}")
-        cols = con.execute(
-            "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = ? "
-            "ORDER BY ordinal_position",
-            [table],
-        ).fetchall()
+        cols = fetchall(
+            con,
+            "SELECT COLUMN_NAME, COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s "
+            "AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION",
+            (db_name(size, role), table),
+        )
         st.dataframe(
             pd.DataFrame(
                 [
@@ -1028,7 +1054,10 @@ def page_data() -> None:
             width="stretch",
         )
         st.markdown("**First 100 rows**")
-        st.dataframe(con.execute(f'SELECT * FROM "{table}" LIMIT 100').df(), width="stretch", hide_index=True)
+        with con.cursor() as cur:
+            cur.execute(f"SELECT * FROM `{table}` LIMIT 100")
+            names = [x[0] for x in cur.description or []]
+            st.dataframe(pd.DataFrame(list(cur.fetchall()), columns=names), width="stretch", hide_index=True)
     finally:
         con.close()
 
@@ -1054,7 +1083,7 @@ SQL over a synthetic warehouse, and a test bench measures how often it gets the 
 - *Split*: train and dev are for improving the analyst; test is kept aside for the final measurement.
 
 **Where things are**
-- Warehouse: `data/bazaar_full.duckdb` (all columns) and one file per role, such as `data/bazaar_full__analyst.duckdb`.
+- Warehouse: MySQL database `bazaar_full` (all columns) and one database per role, such as `bazaar_full_analyst`. Open them in MySQL Workbench.
 - Run results: `results/<run name>/`. Your labels: `datasets/labels/annotations.sqlite`.
 - Full guide: `docs/QueryLens_Run_Guide.docx`.
 

@@ -3,7 +3,7 @@ from bazaar_world.schema import TABLES
 
 
 def test_dictionary_matches_db(small_db):
-    assert check(small_db, load_dictionary()) == []
+    assert check("small", load_dictionary()) == []
 
 
 def test_every_column_documented():

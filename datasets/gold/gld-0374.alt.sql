@@ -1,1 +1,1 @@
-SELECT COUNT(*) FILTER (WHERE o.currency <> 'BDT') * 1.0 / COUNT(*) FROM orders o WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-07-01 00:00:00' AND o.order_at < TIMESTAMP '2025-10-01 00:00:00'
+SELECT SUM(CASE WHEN o.currency <> 'BDT' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) FROM orders o WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-07-01 00:00:00' AND o.order_at < TIMESTAMP '2025-10-01 00:00:00'

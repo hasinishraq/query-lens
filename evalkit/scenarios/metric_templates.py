@@ -223,8 +223,8 @@ def alt_sql(metric: str, p: Period) -> str:
             AND s.delivered_at_utc >= {ua} AND s.delivered_at_utc < {ub}"""
         ),
         "avg_delivery_days": lambda: (
-            f"""SELECT AVG(CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE)
-            - CAST(s.shipped_at_utc + INTERVAL 6 HOUR AS DATE)) AS v FROM shipments s
+            f"""SELECT AVG(DATEDIFF(CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE),
+            CAST(s.shipped_at_utc + INTERVAL 6 HOUR AS DATE))) AS v FROM shipments s
             WHERE s.delivered_at_utc IS NOT NULL AND s.order_id IN (SELECT order_id FROM orders WHERE is_deleted = FALSE)
             AND s.delivered_at_utc >= {ua} AND s.delivered_at_utc < {ub}"""
         ),

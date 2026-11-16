@@ -1,7 +1,7 @@
-import duckdb
 import pytest
 import yaml
 
+from bazaar_world.mysqldb import admin_connect, fetchall
 from bazaar_world.plant import FACTS_PATH, N_INJECTED_MESSAGES, N_INJECTED_REVIEWS, evaluate_facts
 from bazaar_world.pools import INJECTIONS
 
@@ -32,7 +32,7 @@ def test_fact_matches_facts_yaml_small(small_results, fid):
 @pytest.mark.full
 @pytest.mark.parametrize("fid", FACT_IDS)
 def test_fact_holds_full(full_db, fid):
-    con = duckdb.connect(str(full_db), read_only=True)
+    con = admin_connect(full_db)
     try:
         res = evaluate_facts(con, "full")[fid]
     finally:
@@ -46,17 +46,13 @@ def test_injected_rows(small_con):
     inj = _facts_yaml()["traps"]["injected_rows"]["small"]
     assert len(inj["product_reviews"]) == N_INJECTED_REVIEWS
     assert len(inj["support_messages"]) == N_INJECTED_MESSAGES
+    ids = ",".join(map(str, inj["product_reviews"]))
     bodies = [
-        r[0]
-        for r in small_con.execute(
-            f"SELECT body FROM product_reviews WHERE review_id IN ({','.join(map(str, inj['product_reviews']))})"
-        ).fetchall()
+        r[0] for r in fetchall(small_con, f"SELECT body FROM product_reviews WHERE review_id IN ({ids})")
     ]
     assert all(any(x in b for x in INJECTIONS) for b in bodies)
+    ids = ",".join(map(str, inj["support_messages"]))
     msgs = [
-        r[0]
-        for r in small_con.execute(
-            f"SELECT body FROM support_messages WHERE message_id IN ({','.join(map(str, inj['support_messages']))})"
-        ).fetchall()
+        r[0] for r in fetchall(small_con, f"SELECT body FROM support_messages WHERE message_id IN ({ids})")
     ]
     assert all(m in INJECTIONS for m in msgs)

@@ -7,9 +7,8 @@ import json
 import sys
 from pathlib import Path
 
-import duckdb
-
 from .generate import HASHES_PATH, table_hashes
+from .mysqldb import admin_connect, db_name, fetchall
 from .plant import evaluate_facts
 from .schema import TABLES, target_rows
 
@@ -20,14 +19,15 @@ EXPECTED_TABLES = 35
 EXPECTED_COLUMNS = 266
 
 
-def check(db_path: Path, size: str, seed: int = 42) -> list[str]:
+def check(size: str, seed: int = 42) -> list[str]:
     errors: list[str] = []
-    con = duckdb.connect(str(db_path), read_only=True)
+    con = admin_connect(db_name(size))
     try:
-        n_tables, n_cols = con.execute(
-            "SELECT COUNT(DISTINCT table_name), COUNT(*) FROM information_schema.columns "
-            "WHERE table_schema = 'main'"
-        ).fetchone()  # type: ignore[misc]
+        n_tables, n_cols = fetchall(
+            con,
+            "SELECT COUNT(DISTINCT TABLE_NAME), COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = %s",
+            (db_name(size),),
+        )[0]
         if n_tables != EXPECTED_TABLES or n_cols != EXPECTED_COLUMNS:
             errors.append(
                 f"expected {EXPECTED_TABLES} tables / {EXPECTED_COLUMNS} columns, got {n_tables}/{n_cols}"
@@ -66,7 +66,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--size", default="small")
     ap.add_argument("--data", type=Path, default=Path("data"))
     a = ap.parse_args(argv)
-    errs = check(a.data / f"bazaar_{a.size}.duckdb", a.size)
+    errs = check(a.size)
     for e in errs:
         print("ERROR", e)
     print("world-check:", "OK" if not errs else f"{len(errs)} errors")

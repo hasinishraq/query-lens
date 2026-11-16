@@ -2,12 +2,19 @@
 
 import math
 
-import duckdb
 import pytest
 
+from bazaar_world.mysqldb import admin_connect
 from evalkit import checks as C
 from evalkit.align import align
-from evalkit.fingerprint import fp_match, multi_fingerprint, result_match, rows_fingerprint, sql_fingerprint
+from evalkit.fingerprint import (
+    fp_match,
+    multi_fingerprint,
+    result_match,
+    rows_fingerprint,
+    rows_multi_fingerprint,
+    sql_fingerprint,
+)
 from evalkit.judges import Judge, parse_verdict
 from evalkit.stats import (
     bootstrap_ci,
@@ -24,24 +31,24 @@ from evalkit.stats import (
 from querylens.config import ModelRef
 
 
-# ------------------------------------------------------------------ fingerprint
+# ------------------------------------------------------------------ fingerprint (MySQL)
 @pytest.fixture
-def con():
-    c = duckdb.connect()
+def con(mysql_up):
+    c = admin_connect()
     yield c
     c.close()
 
 
 def test_fingerprint_ignores_order_and_names(con):
-    a = sql_fingerprint(con, "SELECT * FROM (VALUES (1, 'A'), (2, 'b')) t(x, y)")
-    b = sql_fingerprint(con, "SELECT y AS name, x AS n FROM (VALUES (2, 'B'), (1, 'a')) t(x, y)")
+    a = sql_fingerprint(con, "SELECT 1 AS x, 'A' AS y UNION ALL SELECT 2, 'b'")
+    b = sql_fingerprint(con, "SELECT 'B' AS name, 2 AS n UNION ALL SELECT 'a', 1")
     assert a[:2] == b[:2]
 
 
 def test_fingerprint_counts_duplicates_and_rounds(con):
-    a = sql_fingerprint(con, "SELECT * FROM (VALUES (1.00001), (1.00001)) t(x)")
-    b = sql_fingerprint(con, "SELECT * FROM (VALUES (1.00002)) t(x)")
-    c = sql_fingerprint(con, "SELECT * FROM (VALUES (1.0), (1.0)) t(x)")
+    a = sql_fingerprint(con, "SELECT 1.00001 AS x UNION ALL SELECT 1.00001")
+    b = sql_fingerprint(con, "SELECT 1.00002 AS x")
+    c = sql_fingerprint(con, "SELECT 1.0 AS x UNION ALL SELECT 1.0")
     assert a[:2] != b[:2]
     assert a[:2] == c[:2]
 
@@ -58,6 +65,11 @@ def test_multi_fingerprint_absorbs_boundary_noise(con):
     c = multi_fingerprint(con, "SELECT 454731.4999 AS x")
     assert fp_match(a, b)
     assert not fp_match(a, c)
+
+
+def test_rows_multi_fingerprint_matches_sql(con):
+    rows = [[1, "a"], [2, "b"]]
+    assert rows_multi_fingerprint(rows) == multi_fingerprint(con, "SELECT 2, 'B' UNION ALL SELECT 1, 'a'")
 
 
 def test_rows_fingerprint_and_result_match():

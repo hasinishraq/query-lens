@@ -1,6 +1,6 @@
 """BazaarDW physical schema: 35 tables, 266 columns (CLAUDE.md section 6.3).
 
-Every table is listed with its columns in order and an explicit DuckDB type. The first column is the
+Every table is listed with its columns in order and a logical type (mapped to MySQL by mysql_type()). The first column is the
 primary key, except ``inventory_snapshots`` whose key is (snapshot_date, warehouse_id, variant_id).
 """
 
@@ -652,3 +652,46 @@ FOREIGN_KEYS: dict[tuple[str, str], tuple[str, str]] = {
     ("product_reviews", "customer_id"): ("customers", "customer_id"),
     ("product_reviews", "order_id"): ("orders", "order_id"),
 }
+
+
+# ---------------------------------------------------------------- MySQL physical types
+LONG_TEXT = {"description", "body", "note", "title", "path", "street_address", "landing_page"}
+_MYSQL = {"INTEGER": "INT", "DOUBLE": "DOUBLE", "BOOLEAN": "BOOLEAN", "TIMESTAMP": "DATETIME", "DATE": "DATE"}
+
+
+def mysql_type(column: str, logical: str) -> str:
+    """MySQL column type for a logical (schema) type."""
+    if logical == "VARCHAR":
+        return "TEXT" if column in LONG_TEXT else "VARCHAR(255)"
+    return _MYSQL[logical]
+
+
+def mysql_data_type(column: str, logical: str) -> str:
+    """The DATA_TYPE that information_schema reports for :func:`mysql_type` (BOOLEAN is stored as tinyint)."""
+    return {
+        "INT": "int",
+        "DOUBLE": "double",
+        "BOOLEAN": "tinyint",
+        "DATETIME": "datetime",
+        "DATE": "date",
+        "TEXT": "text",
+        "VARCHAR(255)": "varchar",
+    }[mysql_type(column, logical)]
+
+
+# indexes that make the warehouse usable without full scans (FK columns and common date filters)
+EXTRA_INDEXES: list[tuple[str, str]] = [
+    ("orders", "order_at"),
+    ("payments", "created_at_utc"),
+    ("shipments", "delivered_at_utc"),
+    ("shipments", "shipped_at_utc"),
+    ("web_sessions", "started_at_utc"),
+    ("support_tickets", "created_at_utc"),
+    ("product_reviews", "created_at"),
+    ("refunds", "requested_at"),
+    ("loyalty_transactions", "txn_at"),
+    ("inventory_snapshots", "snapshot_date"),
+    ("customers", "signup_at"),
+    ("products", "name"),
+    ("sellers", "name"),
+]

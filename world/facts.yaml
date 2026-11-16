@@ -17,7 +17,7 @@ planted:
           - 0.459
         - - Meghna Mart
           - 294
-          - 0.1224
+          - 0.1225
         - - Padma Fashion
           - 76
           - 0.1184
@@ -68,7 +68,7 @@ planted:
     refunds) SELECT r.name, COUNT(*) AS n_orders, AVG(CASE WHEN ref.order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS refund_rate
     FROM orders o JOIN cap ON cap.order_id = o.order_id JOIN customer_addresses a ON a.address_id = o.address_id JOIN cities
     c ON c.city_id = a.city_id JOIN regions r ON r.region_id = c.region_id LEFT JOIN ref ON ref.order_id = o.order_id WHERE
-    NOT o.is_deleted AND o.order_at >= TIMESTAMP '2026-03-01' AND o.order_at < TIMESTAMP '2026-04-01' GROUP BY r.name ORDER
+    NOT o.is_deleted AND o.order_at >= '2026-03-01 00:00:00' AND o.order_at < '2026-04-01 00:00:00' GROUP BY r.name ORDER
     BY refund_rate DESC
 - id: F03
   fact: Two different products are named 'Classic Panjabi' (different sellers)

@@ -1,1 +1,1 @@
-SELECT SUM(points) FILTER (WHERE txn_type = 'redeem') AS v FROM loyalty_transactions WHERE txn_at >= TIMESTAMP '2026-06-01 00:00:00' AND txn_at < TIMESTAMP '2026-07-01 00:00:00' AND txn_type = 'redeem'
+SELECT SUM(CASE WHEN txn_type = 'redeem' THEN points END) AS v FROM loyalty_transactions WHERE txn_at >= TIMESTAMP '2026-06-01 00:00:00' AND txn_at < TIMESTAMP '2026-07-01 00:00:00' AND txn_type = 'redeem'

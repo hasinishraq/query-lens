@@ -1,1 +1,1 @@
-SELECT AVG(date_diff('second', t.created_at_utc, t.resolved_at_utc) / 3600.0) AS value FROM support_tickets t WHERE t.resolved_at_utc IS NOT NULL AND CAST(t.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-11-01' AND DATE '2025-11-30'
+SELECT AVG(TIMESTAMPDIFF(SECOND, t.created_at_utc, t.resolved_at_utc) / 3600.0) AS value FROM support_tickets t WHERE t.resolved_at_utc IS NOT NULL AND CAST(t.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-11-01' AND DATE '2025-11-30'

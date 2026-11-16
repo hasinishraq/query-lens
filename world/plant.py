@@ -14,7 +14,7 @@ break child-table consistency (totals, payment amounts, event order). Each plant
 - F08 ``tables/rest.py`` (Gazipur-2 stockouts in 2026)
 
 This module injects the prompt-injection rows after base generation, and holds the SQL that verifies
-every fact on a built database. ``facts.yaml`` stores the measured values per size.
+every fact on the built MySQL database (fact SQL is MySQL 8 dialect). ``facts.yaml`` stores the measured values per size.
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import numpy as np
 import yaml
 
 from .core import World
+from .mysqldb import fetchall
 from .pools import INJECTIONS
 
 FACTS_PATH = Path(__file__).resolve().parent / "facts.yaml"
@@ -68,7 +68,7 @@ FACT_SQL: dict[str, str] = {
         JOIN cities c ON c.city_id = a.city_id
         JOIN regions r ON r.region_id = c.region_id
         LEFT JOIN ref ON ref.order_id = o.order_id
-        WHERE NOT o.is_deleted AND o.order_at >= TIMESTAMP '2026-03-01' AND o.order_at < TIMESTAMP '2026-04-01'
+        WHERE NOT o.is_deleted AND o.order_at >= '2026-03-01 00:00:00' AND o.order_at < '2026-04-01 00:00:00'
         GROUP BY r.name ORDER BY refund_rate DESC""",
     "F03": """
         SELECT COUNT(DISTINCT product_id) AS n_products, COUNT(DISTINCT seller_id) AS n_sellers
@@ -163,11 +163,11 @@ def inject_untrusted_text(w: World) -> dict[str, list[int]]:
     }
 
 
-def _rows(con: duckdb.DuckDBPyConnection, sql: str) -> list[tuple[Any, ...]]:
-    return con.execute(sql).fetchall()
+def _rows(con: Any, sql: str) -> list[tuple[Any, ...]]:
+    return fetchall(con, sql)
 
 
-def evaluate_facts(con: duckdb.DuckDBPyConnection, size: str) -> dict[str, dict[str, Any]]:
+def evaluate_facts(con: Any, size: str) -> dict[str, dict[str, Any]]:
     """Run every fact query and return {fact_id: {holds, value, detail}}."""
     out: dict[str, dict[str, Any]] = {}
     f01 = _rows(con, FACT_SQL["F01"].format(min_volume=MIN_VOLUME["F01"][size]))

@@ -15,7 +15,20 @@ jobs:
   tier3:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-root-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
     env:
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_PORT: "3306"
+      MYSQL_ADMIN_USER: root
+      MYSQL_ADMIN_PASSWORD: ci-root-password
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -28,7 +41,9 @@ jobs:
         with:
           node-version: "20"
       - run: uv sync --frozen
-      - run: uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+      - run: |
+          uv run python -m bazaar_world.generate --size full --out data/ --no-metadata
+          uv run evalkit datasets gold --snapshots full
       - uses: actions/cache@v4
         with:
           path: |
@@ -41,14 +56,14 @@ jobs:
           if [ -n "${{ github.event.inputs.resume }}" ]; then
             uv run evalkit run --resume "${{ github.event.inputs.resume }}"
           else
-            uv run evalkit run --slice dev --size full --repeats 3 --config b_mistral --judges
+            uv run evalkit run --slice dev --size full --repeats 3 --config e_gemini_lite --judges
           fi
       - name: red team
         env:
           PROMPTFOO_PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: cd redteam && npx --yes promptfoo@0.125.1 redteam run -c promptfooconfig.yaml
       - name: adversarial slice
-        run: uv run evalkit run --slice adv --size full --repeats 1 --config b_mistral
+        run: uv run evalkit run --slice adv --size full --repeats 1 --config e_gemini_lite
       - uses: actions/upload-artifact@v4
         if: always()
         with:

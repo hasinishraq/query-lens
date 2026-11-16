@@ -9,11 +9,13 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
-import duckdb
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pymysql
 import sqlglot
 from sqlglot import exp
 
-from .fingerprint import fp_match, multi_fingerprint, sql_fingerprint
+from .fingerprint import fp_match, multi_fingerprint
 from .schemas import DOMAINS, TRAPS, EvalItem
 
 log = logging.getLogger(__name__)
@@ -60,7 +62,7 @@ CI_SAMPLE = 60
 
 
 def derive_gold_tables(sql: str) -> list[str]:
-    tree = sqlglot.parse_one(sql, read="duckdb")
+    tree = sqlglot.parse_one(sql, read="mysql")
     ctes = {c.alias_or_name.lower() for c in tree.find_all(exp.CTE)}
     return sorted({t.name.lower() for t in tree.find_all(exp.Table) if t.name and t.name.lower() not in ctes})
 
@@ -219,16 +221,41 @@ def report(items: list[EvalItem] | None = None) -> tuple[dict[str, Any], list[st
 
 
 # --------------------------------------------------------------------------- gold results
+def _write_parquet(con: pymysql.connections.Connection, sql: str, path: Path) -> list[str]:
+    with con.cursor() as cur:
+        cur.execute(sql)
+        cols = [d[0] for d in cur.description or []]
+        rows = cur.fetchall()
+    names: list[str] = []
+    for c in cols:  # duplicate output names are allowed in SQL but not in Parquet
+        n, k = c, 1
+        while n in names:
+            k += 1
+            n = f"{c}_{k}"
+        names.append(n)
+    data = {n: [_plain(r[i]) for r in rows] for i, n in enumerate(names)}
+    pq.write_table(pa.table(data) if rows else pa.table({n: pa.array([], pa.string()) for n in names}), path)
+    return [str(d) for d in names]
+
+
+def _plain(v: Any) -> Any:
+    from decimal import Decimal
+
+    return float(v) if isinstance(v, Decimal) else v
+
+
 def build_gold_results(
-    snapshot: str, data_dir: Path, items: list[EvalItem] | None = None, check_alt: bool = True
+    snapshot: str, items: list[EvalItem] | None = None, check_alt: bool = True
 ) -> dict[str, Any]:
-    """Run every gold SQL on a snapshot (analyst role DB); store Parquet + fingerprints; double-written check."""
-    from querylens.paths import db_path
+    """Run every gold SQL on a snapshot (analyst role database); store Parquet + fingerprints; double-written check."""
+    from bazaar_world.mysqldb import admin_connect, db_name
 
     items = items if items is not None else load_all()
     out_dir = DATASETS / "gold_results" / snapshot
     out_dir.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(data_dir / db_path(snapshot).name), read_only=True)
+    for old in out_dir.glob("*.parquet"):
+        old.unlink()
+    con = admin_connect(db_name(snapshot, "analyst"))
     hashes: dict[str, Any] = {}
     problems: list[str] = []
     done_files: set[str] = set()
@@ -241,12 +268,11 @@ def build_gold_results(
             key = Path(it.gold_sql_file or "").stem
             try:
                 fp = multi_fingerprint(con, sql)
-                _, _, types = sql_fingerprint(con, sql)
-                con.execute(f"COPY ({sql}) TO '{(out_dir / f'{key}.parquet').as_posix()}' (FORMAT parquet)")
-            except duckdb.Error as e:
-                problems.append(f"{it.id}: gold SQL fails on {snapshot}: {str(e).splitlines()[0][:200]}")
+                cols = _write_parquet(con, sql, out_dir / f"{key}.parquet")
+            except pymysql.MySQLError as e:
+                problems.append(f"{it.id}: gold SQL fails on {snapshot}: {str(e)[:200]}")
                 continue
-            entry: dict[str, Any] = {"rows": fp["d"][0], "fp": fp, "types": types}
+            entry: dict[str, Any] = {"rows": fp["d"][0], "fp": fp, "columns": cols}
             alt = variant_sql(it, "alt")
             if alt and check_alt:
                 try:
@@ -257,17 +283,17 @@ def build_gold_results(
                             f"{it.id}: alt SQL fingerprint differs on {snapshot} "
                             f"({afp['d'][0]} vs {fp['d'][0]} rows)"
                         )
-                except duckdb.Error as e:
+                except pymysql.MySQLError as e:
                     entry["alt_match"] = False
-                    problems.append(f"{it.id}: alt SQL fails on {snapshot}: {str(e).splitlines()[0][:200]}")
+                    problems.append(f"{it.id}: alt SQL fails on {snapshot}: {str(e)[:200]}")
             trap = variant_sql(it, "trap")
             if trap:
                 try:
                     tfp = multi_fingerprint(con, trap)
                     entry["trap_fp"] = tfp
                     entry["trap_differs"] = not fp_match(tfp, fp)
-                except duckdb.Error as e:
-                    problems.append(f"{it.id}: trap SQL fails on {snapshot}: {str(e).splitlines()[0][:200]}")
+                except pymysql.MySQLError as e:
+                    problems.append(f"{it.id}: trap SQL fails on {snapshot}: {str(e)[:200]}")
             hashes[key] = entry
     finally:
         con.close()

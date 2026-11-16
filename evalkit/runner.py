@@ -12,13 +12,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import duckdb
+import pyarrow.parquet as pq
+import pymysql
 
 from querylens.agent import Agent, AgentResult
 from querylens.config import AgentConfig, load_config, load_providers
 from querylens.guard import check_sql, open_role_connection, role_schema
 from querylens.llm import AllModelsFailed, LLMClient
-from querylens.paths import DATA, db_path
+from querylens.paths import DATA
 from querylens.ratelimit import QuotaExhausted
 
 from . import checks as C
@@ -53,12 +54,11 @@ class Evaluator:
 
     def __init__(self, snapshot: str, role: str = "analyst", judges: dict[str, Judge] | None = None) -> None:
         self.snapshot = snapshot
-        self.db = db_path(snapshot, role)
-        self.schema = role_schema(str(self.db), role)
+        self.schema = role_schema(snapshot, role)
         from querylens.config import SqlRuntime
 
-        self.rt = SqlRuntime()
-        self.con = open_role_connection(self.db, self.rt)
+        self.rt = SqlRuntime(timeout_s=60)  # scoring may take longer than the agent's 10 s, still read-only
+        self.con = open_role_connection(snapshot, role, self.rt)
         self.gold = load_gold_hashes(snapshot)
         self.judges = judges or {}
 
@@ -70,17 +70,18 @@ class Evaluator:
         p = DATASETS / "gold_results" / self.snapshot / f"{key}.parquet"
         if not p.exists():
             return []
-        rows = duckdb.sql(f"SELECT * FROM read_parquet('{p.as_posix()}')").fetchall()
-        return [list(r) for r in rows]
+        return [list(r.values()) for r in pq.read_table(p).to_pylist()]
 
     def _pred(self, sql: str) -> tuple[dict[str, list[Any]] | None, list[list[Any]]]:
         if not sql or not check_sql(sql, self.schema).ok:
             return None, []
         try:
             fp = multi_fingerprint(self.con, sql)
-            rows = [list(r) for r in self.con.execute(f"SELECT * FROM ({sql}) _p LIMIT 1000").fetchall()]
-            return fp, rows
-        except duckdb.Error:
+            from bazaar_world.mysqldb import fetch_with_columns
+
+            _, rows_t, _ = fetch_with_columns(self.con, sql, limit=1000)
+            return fp, [list(r) for r in rows_t]
+        except (pymysql.MySQLError, ValueError):
             return None, []
 
     def score(

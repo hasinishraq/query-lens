@@ -42,6 +42,7 @@ from .metric_templates import (
     gold_sql,
     trap_sql,
 )
+from .mysql_dialect import to_mysql
 
 Gen = Callable[["Ctx", int], list[Instance]]
 
@@ -105,6 +106,7 @@ def _clean(sql: str) -> str:
 
 
 def I(key: str, en: str, bn_: str, bl: str, gold: str, alt: str, trap: str | None = None, **kw) -> Instance:  # noqa: E743
+    gold, alt, trap = to_mysql(gold) or "", to_mysql(alt) or "", to_mysql(trap)
     return Instance(
         key=key,
         en=en,
@@ -345,7 +347,7 @@ def lk_dup(ctx: Ctx, n: int) -> list[Instance]:
             "'Classic Panjabi' নামে কতগুলো আলাদা পণ্য আছে?",
             "'Classic Panjabi' name e koyta alada product ache?",
             "SELECT COUNT(DISTINCT product_id) FROM products WHERE name = 'Classic Panjabi'",
-            "SELECT COUNT(*) FROM (SELECT product_id FROM products WHERE name = 'Classic Panjabi' GROUP BY product_id)",
+            "SELECT COUNT(*) FROM (SELECT product_id FROM products WHERE name = 'Classic Panjabi' GROUP BY product_id) t",
             "SELECT COUNT(DISTINCT name) FROM products WHERE name = 'Classic Panjabi'",
         ),
         (
@@ -538,7 +540,8 @@ def _top_sellers_gmv(p: Period, k: int) -> tuple[str, str]:
             JOIN sellers s ON s.seller_id = oi.seller_id WHERE {VALID} AND {odate(p)} GROUP BY s.seller_id, s.name ORDER BY gmv DESC LIMIT {k}"""
     a = f"""WITH t AS (SELECT oi.seller_id, SUM(oi.line_total_bdt) AS v FROM order_items oi WHERE oi.order_id IN
             (SELECT order_id FROM orders o WHERE {VALID_ALT} AND {odate_alt(p)}) GROUP BY 1)
-            SELECT t.seller_id, s.name, t.v FROM t JOIN sellers s USING (seller_id) QUALIFY ROW_NUMBER() OVER (ORDER BY t.v DESC) <= {k}"""
+            SELECT seller_id, name, v FROM (SELECT t.seller_id, s.name, t.v, ROW_NUMBER() OVER (ORDER BY t.v DESC) AS rn
+            FROM t JOIN sellers s USING (seller_id)) ranked WHERE rn <= {k}"""
     return g, a
 
 
@@ -1114,7 +1117,7 @@ def tr_ddays(ctx: Ctx, n: int) -> list[Instance]:
                 f"{p.bn} প্রতি মাসে গড় ডেলিভারি সময় কত দিন ছিল?",
                 f"{p.bl} protimashe gore delivery te koto din legeche?",
                 f"SELECT date_trunc('month', {dd}) AS month, AVG(date_diff('day', {sd}, {dd})) FROM shipments s JOIN orders o ON o.order_id = s.order_id WHERE s.status = 'delivered' AND NOT o.is_deleted AND {p.between(dd)} GROUP BY 1 ORDER BY 1",
-                f"SELECT CAST(strftime({dd}, '%Y-%m-01') AS DATE), AVG({dd} - {sd}) FROM shipments s WHERE s.delivered_at_utc IS NOT NULL AND s.order_id IN (SELECT order_id FROM orders WHERE is_deleted = FALSE) AND {dd} >= DATE '{p.s}' AND {dd} <= DATE '{p.e}' GROUP BY 1 ORDER BY 1",
+                f"SELECT CAST(strftime({dd}, '%Y-%m-01') AS DATE), AVG(DATEDIFF({dd}, {sd})) FROM shipments s WHERE s.delivered_at_utc IS NOT NULL AND s.order_id IN (SELECT order_id FROM orders WHERE is_deleted = FALSE) AND {dd} >= DATE '{p.s}' AND {dd} <= DATE '{p.e}' GROUP BY 1 ORDER BY 1",
                 ordered=True,
             )
         )
@@ -1123,9 +1126,9 @@ def tr_ddays(ctx: Ctx, n: int) -> list[Instance]:
 
 F05_GOLD = f"""SELECT CAST(o.order_at AS DATE) AS day, SUM({ORDER_VALUE}) AS gmv FROM orders o {FX_JOIN} WHERE {VALID} {{extra}}
                GROUP BY 1 ORDER BY gmv DESC LIMIT 1"""
-F05_ALT = """SELECT d, g FROM (SELECT CAST(o.order_at AS DATE) AS d, SUM(CASE WHEN o.currency = 'BDT' THEN o.total_bdt ELSE o.total_amount * x.bdt_per_unit END) AS g
+F05_ALT = """SELECT d, g FROM (SELECT d, g, RANK() OVER (ORDER BY g DESC) AS rk FROM (SELECT CAST(o.order_at AS DATE) AS d, SUM(CASE WHEN o.currency = 'BDT' THEN o.total_bdt ELSE o.total_amount * x.bdt_per_unit END) AS g
              FROM orders o LEFT JOIN currency_rates x ON x.rate_date = CAST(o.order_at AS DATE) AND x.currency = o.currency
-             WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') {extra} GROUP BY 1) t QUALIFY RANK() OVER (ORDER BY g DESC) = 1"""
+             WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') {extra} GROUP BY 1) t) ranked WHERE rk = 1"""
 
 
 @template(
@@ -1357,7 +1360,7 @@ def cp_promo(ctx: Ctx, n: int) -> list[Instance]:
             f"SELECT '{q.key}' AS quarter, AVG(CASE WHEN o.promo_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS rate FROM orders o WHERE {VALID} AND {odate(q)}"
             for q in (a, b)
         )
-        alt = f"SELECT strftime(o.order_at, '%Y') || 'Q' || quarter(o.order_at), COUNT(o.promo_id) * 1.0 / COUNT(*) FROM orders o WHERE {VALID_ALT} AND (({odate_alt(a)}) OR ({odate_alt(b)})) GROUP BY 1"
+        alt = f"SELECT CONCAT(YEAR(o.order_at), 'Q', QUARTER(o.order_at)), COUNT(o.promo_id) * 1.0 / COUNT(*) FROM orders o WHERE {VALID_ALT} AND (({odate_alt(a)}) OR ({odate_alt(b)})) GROUP BY 1"
         out.append(
             I(
                 f"{a.key}:{b.key}",
@@ -1450,9 +1453,9 @@ def rt_24h(ctx: Ctx, n: int) -> list[Instance]:
                 f"What share of all support tickets created in {p.en} were resolved within 24 hours?",
                 f"{p.bn} তৈরি হওয়া সব সাপোর্ট টিকিটের কত অংশ ২৪ ঘণ্টার মধ্যে সমাধান হয়েছে?",
                 f"{p.bl} toiri howa sob support ticket er koto percent 24 ghontar moddhe solve hoyeche?",
-                f"SELECT AVG(CASE WHEN resolved_at_utc IS NOT NULL AND resolved_at_utc - created_at_utc <= INTERVAL 24 HOUR THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE {d}",
+                f"SELECT AVG(CASE WHEN resolved_at_utc IS NOT NULL AND TIMESTAMPDIFF(SECOND, created_at_utc, resolved_at_utc) <= 86400 THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE {d}",
                 f"SELECT COUNT(*) FILTER (WHERE date_diff('second', created_at_utc, resolved_at_utc) <= 86400) * 1.0 / COUNT(*) FROM support_tickets WHERE created_at_utc >= TIMESTAMP '{p.s}' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '{p.e}' + INTERVAL 18 HOUR",
-                f"SELECT AVG(CASE WHEN resolved_at_utc - created_at_utc <= INTERVAL 24 HOUR THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE {d} AND resolved_at_utc IS NOT NULL",
+                f"SELECT AVG(CASE WHEN TIMESTAMPDIFF(SECOND, created_at_utc, resolved_at_utc) <= 86400 THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE {d} AND resolved_at_utc IS NOT NULL",
             )
         )
     return out
@@ -1596,7 +1599,7 @@ def ch_vip(ctx: Ctx, n: int) -> list[Instance]:
         g = f"""SELECT COUNT(*) * 1.0 / COUNT(DISTINCT o.customer_id) FROM orders o JOIN customer_segment_history h ON h.customer_id = o.customer_id
                 AND h.valid_from <= CAST(o.order_at AS DATE) AND CAST(o.order_at AS DATE) < h.valid_to WHERE {VALID} AND {odate(p)} AND h.segment = 'vip'"""
         a = f"""SELECT AVG(n) FROM (SELECT o.customer_id, COUNT(*) AS n FROM orders o WHERE {VALID_ALT} AND {odate_alt(p)} AND EXISTS (SELECT 1 FROM customer_segment_history h
-                WHERE h.customer_id = o.customer_id AND h.segment = 'vip' AND CAST(o.order_at AS DATE) >= h.valid_from AND CAST(o.order_at AS DATE) < h.valid_to) GROUP BY 1)"""
+                WHERE h.customer_id = o.customer_id AND h.segment = 'vip' AND CAST(o.order_at AS DATE) >= h.valid_from AND CAST(o.order_at AS DATE) < h.valid_to) GROUP BY 1) t"""
         t = f"""SELECT COUNT(*) * 1.0 / COUNT(DISTINCT o.customer_id) FROM orders o JOIN customer_segment_history h ON h.customer_id = o.customer_id AND h.is_current
                 WHERE {VALID} AND {odate(p)} AND h.segment = 'vip'"""
         out.append(

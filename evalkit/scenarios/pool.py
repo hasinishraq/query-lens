@@ -12,8 +12,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import duckdb
 import numpy as np
+
+from bazaar_world.mysqldb import admin_connect, db_name
 
 from ..datasets import DATASETS, load_all
 from .build import SEED, make_ctx
@@ -39,9 +40,9 @@ def persona(rng: np.random.Generator, q: str, kind: str, bl: str | None = None) 
     return q
 
 
-def build_pool(full_db: Path, small_db: Path) -> list[dict]:
-    con = duckdb.connect(str(full_db), read_only=True)
-    small = duckdb.connect(str(small_db), read_only=True)
+def build_pool() -> list[dict]:
+    con = admin_connect(db_name("full"))
+    small = admin_connect(db_name("small"))
     try:
         ctx = make_ctx(con, small)
     finally:
@@ -101,7 +102,7 @@ def build_pool(full_db: Path, small_db: Path) -> list[dict]:
 
 
 def main() -> None:
-    pool = build_pool(ROOT / "data" / "bazaar_full.duckdb", ROOT / "data" / "bazaar_small.duckdb")
+    pool = build_pool()
     path = DATASETS / "scenarios.jsonl"
     with open(path, "w", encoding="utf-8", newline="\n") as f:
         for s in pool:

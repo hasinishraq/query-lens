@@ -1,27 +1,24 @@
-import duckdb
+import pymysql
 import pytest
 
-from bazaar_world.roles import ROLES, role_db_path
+from bazaar_world.mysqldb import ROLES, admin_connect, db_name, role_connect
+from bazaar_world.roles import role_columns
 from bazaar_world.schema import TABLES
 
 PII = {(t.name, c) for t in TABLES for c in t.pii}
 
 
-def _cols(path):
-    con = duckdb.connect(str(path), read_only=True)
-    try:
-        return set(
-            con.execute(
-                "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='main'"
-            ).fetchall()
-        )
-    finally:
-        con.close()
-
-
 @pytest.fixture(scope="module")
 def role_cols(small_db):
-    return {r: _cols(role_db_path(small_db.parent, "small", r)) for r in ROLES}
+    con = admin_connect()
+    try:
+        out = {}
+        for r in ROLES:
+            cols = role_columns(con, db_name("small", r))
+            out[r] = {(t, c) for t, cs in cols.items() for c, _ in cs}
+        return out
+    finally:
+        con.close()
 
 
 def test_analyst_has_no_pii(role_cols):
@@ -61,22 +58,35 @@ def test_finance_scope(role_cols):
     assert not any(c == "customer_id" for t, c in role_cols["finance"] if t == "orders")
 
 
-def test_role_db_blocks_base_tables_and_writes(small_db):
-    con = duckdb.connect(
-        str(role_db_path(small_db.parent, "small", "analyst")),
-        read_only=True,
-        config={"enable_external_access": False},
-    )
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT * FROM support_messages",
+        "SELECT email FROM customers",
+        "SELECT COUNT(*) FROM bazaar_small.customers",
+        "SELECT COUNT(*) FROM bazaar_small_support.support_messages",
+        "CREATE TABLE x (a INT)",
+        "DELETE FROM orders",
+        "UPDATE orders SET status = 'x'",
+        "SELECT 1 INTO OUTFILE 'C:/q.txt'",
+        "DROP DATABASE bazaar_small_analyst",
+    ],
+)
+def test_role_user_cannot(small_db, sql):
+    """Physical enforcement: the analyst MySQL user cannot reach base tables, PII, other roles, or write."""
+    con = role_connect("small", "analyst")
     try:
-        for sql in (
-            "SELECT * FROM support_messages",
-            "SELECT email FROM customers",
-            f"ATTACH '{small_db.as_posix()}' AS b",
-            "CREATE TABLE x AS SELECT 1",
-            "DELETE FROM orders",
-            "SELECT * FROM read_csv('world/params.yaml')",
-        ):
-            with pytest.raises(duckdb.Error):
-                con.execute(sql)
+        with pytest.raises(pymysql.MySQLError), con.cursor() as cur:
+            cur.execute(sql)
+    finally:
+        con.close()
+
+
+def test_load_file_returns_nothing(small_db):
+    con = role_connect("small", "analyst")
+    try:
+        with con.cursor() as cur:
+            cur.execute("SELECT LOAD_FILE('C:/Windows/win.ini')")
+            assert cur.fetchone()[0] is None  # no FILE privilege
     finally:
         con.close()

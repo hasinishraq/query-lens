@@ -1,1 +1,1 @@
-SELECT COUNT(*) FILTER (WHERE date_diff('second', created_at_utc, resolved_at_utc) <= 86400) * 1.0 / COUNT(*) FROM support_tickets WHERE created_at_utc >= TIMESTAMP '2025-10-01' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '2025-10-31' + INTERVAL 18 HOUR
+SELECT SUM(CASE WHEN TIMESTAMPDIFF(SECOND, created_at_utc, resolved_at_utc) <= 86400 THEN 1 ELSE 0 END) * 1.0 / COUNT(*) FROM support_tickets WHERE created_at_utc >= TIMESTAMP '2025-10-01 00:00:00' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '2025-10-31 00:00:00' + INTERVAL 18 HOUR

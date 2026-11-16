@@ -1,72 +1,69 @@
-"""Role databases: physical enforcement of the role views.
+"""Role databases and users in MySQL: physical enforcement of the role views (CLAUDE.md 6.7, rules 1-2).
 
-DuckDB falls back to the ``main`` schema for unqualified names even when ``search_path`` points to a
-role schema, so views alone cannot stop a query from reaching a base table. Each role therefore gets
-its own DuckDB file whose ``main`` schema holds *only* the role's view contents
-(``data/bazaar_<size>__<role>.duckdb``). The agent opens that file read-only; base tables and the
-other roles' columns do not exist there. The guard enforces the same rules again in code.
+For each size, ``bazaar_<size>_<role>`` holds only views over the base tables. The role user ``ql_<role>`` gets
+SELECT and SHOW VIEW on that database and nothing else: no base tables, no FILE privilege (so no
+INTO OUTFILE / LOAD_FILE / LOAD DATA), no writes. The guard enforces the same rules again in code.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-import duckdb
+import pymysql
 
-ROLES: dict[str, str] = {"analyst": "v_analyst", "support": "v_support", "finance": "v_finance"}
+from .mysqldb import ROLES, admin_connect, db_name, fetchall, role_password, role_user
 
-
-def role_db_path(data_dir: Path, size: str, role: str) -> Path:
-    if role == "admin":
-        return data_dir / f"bazaar_{size}.duckdb"
-    if role not in ROLES:
-        raise ValueError(f"unknown role {role!r}; expected one of {sorted(ROLES)} or 'admin'")
-    return data_dir / f"bazaar_{size}__{role}.duckdb"
+VIEWS_SQL = Path(__file__).resolve().parent / "views.sql"
+HOSTS = ("localhost", "127.0.0.1")
 
 
-def role_tables(con: duckdb.DuckDBPyConnection, schema: str) -> list[str]:
-    rows = con.execute(
-        "SELECT table_name FROM information_schema.tables WHERE table_schema = ? ORDER BY table_name",
-        [schema],
-    ).fetchall()
-    return [r[0] for r in rows]
-
-
-def role_columns(con: duckdb.DuckDBPyConnection, schema: str) -> dict[str, list[tuple[str, str]]]:
-    rows = con.execute(
-        "SELECT table_name, column_name, data_type FROM information_schema.columns WHERE table_schema = ? "
-        "ORDER BY table_name, ordinal_position",
-        [schema],
-    ).fetchall()
+def role_columns(con: pymysql.connections.Connection, database: str) -> dict[str, list[tuple[str, str]]]:
+    rows = fetchall(
+        con,
+        "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS "
+        "WHERE TABLE_SCHEMA = %s ORDER BY TABLE_NAME, ORDINAL_POSITION",
+        (database,),
+    )
     out: dict[str, list[tuple[str, str]]] = {}
     for t, c, d in rows:
         out.setdefault(t, []).append((c, d))
     return out
 
 
-def build_role_dbs(base_path: Path, size: str) -> dict[str, Path]:
-    data_dir = base_path.parent
-    out: dict[str, Path] = {}
-    for role, schema in ROLES.items():
-        path = role_db_path(data_dir, size, role)
-        if path.exists():
-            path.unlink()
-        con = duckdb.connect(str(path))
-        try:
-            con.execute(f"ATTACH '{base_path.as_posix()}' AS base (READ_ONLY)")
-            tables = [
-                r[0]
-                for r in con.execute(
-                    "SELECT table_name FROM information_schema.tables WHERE table_catalog = 'base' "
-                    "AND table_schema = ? ORDER BY table_name",
-                    [schema],
-                ).fetchall()
-            ]
-            for t in tables:
-                con.execute(f'CREATE TABLE main."{t}" AS SELECT * FROM base.{schema}."{t}"')
-            con.execute("DETACH base")
-            con.execute("CHECKPOINT")
-        finally:
-            con.close()
-        out[role] = path
-    return out
+def _statements(sql: str) -> list[str]:
+    lines = [ln for ln in sql.splitlines() if not ln.strip().startswith("--")]
+    return [s.strip() for s in "\n".join(lines).split(";") if s.strip()]
+
+
+def ensure_users(con: pymysql.connections.Connection) -> None:
+    with con.cursor() as cur:
+        for role in ROLES:
+            pw = role_password(role, create=True)
+            for host in HOSTS:
+                cur.execute(f"CREATE USER IF NOT EXISTS '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
+                cur.execute(f"ALTER USER '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
+
+
+def build_role_dbs(size: str) -> dict[str, str]:
+    """(Re)create the three role databases of a size with their views, users and grants."""
+    base = db_name(size)
+    names = {r: db_name(size, r) for r in ROLES}
+    con = admin_connect()
+    try:
+        ensure_users(con)
+        with con.cursor() as cur:
+            for d in names.values():
+                cur.execute(f"DROP DATABASE IF EXISTS `{d}`")
+                cur.execute(f"CREATE DATABASE `{d}` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_as_cs")
+            sql = VIEWS_SQL.read_text(encoding="utf-8").replace("{base}", f"`{base}`")
+            for r, d in names.items():
+                sql = sql.replace("{" + r + "}", f"`{d}`")
+            for stmt in _statements(sql):
+                cur.execute(stmt)
+            for r, d in names.items():
+                for host in HOSTS:
+                    cur.execute(f"GRANT SELECT, SHOW VIEW ON `{d}`.* TO '{role_user(r)}'@'{host}'")
+            cur.execute("FLUSH PRIVILEGES")
+    finally:
+        con.close()
+    return names

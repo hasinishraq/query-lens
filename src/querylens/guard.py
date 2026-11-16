@@ -1,23 +1,20 @@
-"""SQL guard and output PII scan (CLAUDE.md 7.2).
+"""SQL guard and output PII scan (CLAUDE.md 7.2), MySQL 8 dialect.
 
 The guard is the code-level permission layer: every query the model writes passes :func:`check_sql`
-before it reaches DuckDB. Rejections carry a ``rule`` id (for traces and F7 counting) and a message the
-model can act on. Connection-level limits (read-only, no external access, memory, timeout) are applied
-in :func:`open_role_connection` and :func:`execute_with_timeout`.
+before it reaches MySQL. Rejections carry a ``rule`` id (for traces and F7 counting) and a message the
+model can act on. The connection layer adds a second, physical layer: the agent connects as a role user with
+SELECT-only grants on its own role database, in a READ ONLY session, with ``max_execution_time`` set.
 """
 
 from __future__ import annotations
 
 import difflib
-import json
 import re
-import threading
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
-import duckdb
+import pymysql
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import OptimizeError, ParseError, SqlglotError
@@ -25,6 +22,8 @@ from sqlglot.expressions.core import Expression
 from sqlglot.optimizer.qualify import qualify
 
 from .config import SqlRuntime
+
+DIALECT = "mysql"
 
 BANNED_STATEMENTS = (
     exp.Insert,
@@ -38,58 +37,54 @@ BANNED_STATEMENTS = (
     exp.Copy,
     exp.Pragma,
     exp.Set,
-    exp.Attach,
-    exp.Detach,
-    exp.Install,
     exp.Use,
     exp.Describe,
-    exp.Summarize,
     exp.TruncateTable,
     exp.Transaction,
     exp.Commit,
     exp.Rollback,
     exp.Grant,
     exp.Kill,
+    exp.Show,
+    exp.LoadData,
 )
-FILE_FUNCTIONS = {
-    "read_csv",
-    "read_csv_auto",
-    "read_parquet",
-    "parquet_scan",
-    "read_json",
-    "read_json_auto",
-    "read_json_objects",
-    "read_ndjson",
-    "read_ndjson_auto",
-    "read_text",
-    "read_blob",
-    "glob",
-    "csv_scan",
-    "sniff_csv",
-    "parquet_metadata",
-    "parquet_schema",
-    "iceberg_scan",
-    "delta_scan",
-    "sqlite_scan",
-    "postgres_scan",
-    "mysql_scan",
-    "read_xlsx",
-    "query_table",
-    "query",
-    "json_execute_serialized_sql",
-    "getenv",
-    "duckdb_secrets",
-    "duckdb_settings",
-    "duckdb_extensions",
-    "duckdb_databases",
-    "pragma_version",
+# functions that read files, stall the server, take locks or reveal server/session state
+FORBIDDEN_FUNCTIONS = {
+    "load_file",
+    "sleep",
+    "benchmark",
+    "get_lock",
+    "release_lock",
+    "release_all_locks",
+    "is_free_lock",
+    "is_used_lock",
+    "master_pos_wait",
+    "source_pos_wait",
+    "wait_for_executed_gtid_set",
+    "sys_exec",
+    "sys_eval",
+    "user",
+    "current_user",
+    "session_user",
+    "system_user",
+    "database",
+    "schema",
+    "version",
+    "connection_id",
+    "found_rows",
+    "row_count",
+    "last_insert_id",
     "load_extension",
-    "install_extension",
-    "current_setting",
+    "get_format_dummy",
+    "statement_digest",
+    "ps_current_thread_id",
+    "ps_thread_id",
+    "format_bytes",
+    "format_pico_time",
 }
-SYSTEM_SCHEMAS = {"information_schema", "pg_catalog", "system", "temp"}
-URL_RE = re.compile(r"^\s*(https?|s3|gcs|gs|az|azure|hf|r2|file)://", re.I)
-PATH_RE = re.compile(r"\.(csv|parquet|json|ndjson|jsonl|txt|db|duckdb|sqlite|xlsx|gz|zst)\b", re.I)
+SYSTEM_SCHEMAS = {"information_schema", "mysql", "performance_schema", "sys"}
+URL_RE = re.compile(r"^\s*(https?|s3|gcs|gs|az|azure|file|ftp)://", re.I)
+PATH_RE = re.compile(r"[\\/]|\.(csv|parquet|json|txt|db|sql|sqlite|xlsx|ini|cnf|log)$", re.I)
 
 
 @dataclass
@@ -117,21 +112,24 @@ class RoleSchema:
 
 
 @lru_cache(maxsize=16)
-def role_schema(db_path: str, role: str) -> RoleSchema:
-    """Read the role database's tables and columns (role DBs contain only what the role may see)."""
+def role_schema(size: str, role: str) -> RoleSchema:
+    """Tables and columns of the role database (it contains only what the role may see)."""
+    from bazaar_world.mysqldb import admin_connect, db_name, fetchall
     from bazaar_world.schema import TABLES
 
-    con = duckdb.connect(db_path, read_only=True)
+    con = admin_connect()
     try:
-        rows = con.execute(
-            "SELECT table_name, column_name, data_type FROM information_schema.columns "
-            "WHERE table_schema='main' ORDER BY table_name, ordinal_position"
-        ).fetchall()
+        rows = fetchall(
+            con,
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS "
+            "WHERE TABLE_SCHEMA = %s ORDER BY TABLE_NAME, ORDINAL_POSITION",
+            (db_name(size, role),),
+        )
     finally:
         con.close()
     tables: dict[str, dict[str, str]] = {}
     for t, c, d in rows:
-        tables.setdefault(t, {})[c] = d
+        tables.setdefault(t.lower(), {})[c.lower()] = d
     base = {t.name: t.column_names for t in TABLES}
     return RoleSchema(role=role, tables=tables, base_tables=base)
 
@@ -171,11 +169,15 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
     """Static checks; does not touch the database."""
     if not sql or not sql.strip():
         return _reject("empty", "The query is empty. Send one SELECT statement.")
+    if re.search(r"\binto\s+(outfile|dumpfile)\b", sql, re.I):
+        return _reject(
+            "file_access", "Writing query results to files (INTO OUTFILE/DUMPFILE) is not allowed."
+        )
     try:
-        stmts = [s for s in sqlglot.parse(sql, read="duckdb") if s is not None]
+        stmts = [s for s in sqlglot.parse(sql, read=DIALECT) if s is not None]
     except (ParseError, SqlglotError) as e:
         return _reject(
-            "parse_error", f"The SQL does not parse (DuckDB dialect): {str(e).splitlines()[0][:200]}"
+            "parse_error", f"The SQL does not parse (MySQL dialect): {str(e).splitlines()[0][:200]}"
         )
     if len(stmts) != 1:
         return _reject("multiple_statements", f"Send exactly one statement; got {len(stmts)}.")
@@ -193,18 +195,24 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
                 "non_select",
                 f"Statements of type {type(node).__name__.upper()} are not allowed inside a query.",
             )
-    # file / URL readers and system functions
+        if isinstance(node, exp.Into):
+            return _reject("non_select", "SELECT ... INTO is not allowed.")
+        if isinstance(node, (exp.SessionParameter, exp.Parameter)) or (
+            isinstance(node, exp.Var) and str(node.this).startswith("@")
+        ):
+            return _reject("system_catalog", "Session and server variables (@x, @@x) are not available.")
     for node in tree.find_all(exp.Func):
         fname = (node.sql_name() if not isinstance(node, exp.Anonymous) else str(node.this)).lower()
+        rendered = node.sql(dialect=DIALECT).split("(", 1)[0].strip().lower()  # typed nodes, e.g. VERSION()
         if (
-            fname in FILE_FUNCTIONS
-            or isinstance(node, (exp.ReadCSV,))
-            or fname.startswith(("read_", "duckdb_"))
+            fname in FORBIDDEN_FUNCTIONS
+            or rendered in FORBIDDEN_FUNCTIONS
+            or isinstance(node, (exp.CurrentUser, exp.CurrentSchema))
         ):
             return _reject(
                 "file_access",
-                f"Function {fname}() reads files, URLs or system state and is not "
-                "allowed. Query the warehouse tables instead.",
+                f"Function {fname}() reads files, stalls the server or reveals server "
+                "state, and is not allowed. Query the warehouse tables instead.",
             )
     for lit in tree.find_all(exp.Literal):
         if lit.is_string and URL_RE.match(str(lit.this)):
@@ -215,7 +223,7 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
         if not isinstance(t.this, exp.Identifier):
             return _reject("file_access", "Table functions are not allowed; use table names.")
         name = t.name
-        if t.this.quoted and (PATH_RE.search(name) or "/" in name or "\\" in name):
+        if PATH_RE.search(name):
             return _reject(
                 "file_access", f"'{name}' looks like a file path; only warehouse tables are allowed."
             )
@@ -225,18 +233,18 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
             if db in SYSTEM_SCHEMAS or catalog in SYSTEM_SCHEMAS:
                 return _reject(
                     "system_catalog",
-                    "System catalogs are not available. Use search_schema or "
+                    "System databases are not available. Use search_schema or "
                     "describe_table to explore the schema.",
                 )
             return _reject(
                 "schema_reference",
-                f"Do not qualify table names with a schema ('{db or catalog}."
-                f"{name}'). Your role schema is already active: use {name}.",
+                f"Do not qualify table names with a database ('{db or catalog}."
+                f"{name}'). Your role database is already active: use {name}.",
             )
         lname = name.lower()
         if lname in cte_names:
             continue
-        if lname.startswith(("duckdb_", "pragma_", "sqlite_")):
+        if lname in SYSTEM_SCHEMAS:
             return _reject("system_catalog", "System tables are not available. Use describe_table.")
         if lname not in schema.tables:
             if lname in schema.base_tables:
@@ -251,14 +259,13 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
                 "unknown_table", f"Table {name} does not exist.{hint} Use search_schema to find tables."
             )
         tables.append(lname)
-    # columns: resolve aliases and * with the role schema
     mapping = {t: dict(cols) for t, cols in schema.tables.items()}
     columns: list[str] = []
     try:
         q = qualify(
             tree.copy(),
             schema=mapping,
-            dialect="duckdb",
+            dialect=DIALECT,
             validate_qualify_columns=True,
             quote_identifiers=False,
             identify=False,
@@ -278,7 +285,7 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
     except OptimizeError as e:
         columns = []
         msg = str(e)
-        m = re.search(r"[Cc]olumn '?\"?([A-Za-z_][\w]*)", msg)
+        m = re.search(r"[Cc]olumn '?\"?`?([A-Za-z_][\w]*)", msg)
         col = m.group(1).lower() if m else ""
         if col:
             owners = [t for t in tables if col in schema.base_tables.get(t, [])]
@@ -296,7 +303,6 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
                 f"Column {col} does not exist in the referenced tables.{hint} "
                 "Use describe_table to see the columns.",
             )
-        # unresolvable for other reasons (complex DuckDB syntax): fall back to a conservative name check
         fb = _fallback_columns(tree, tables, schema)
         if isinstance(fb, GuardResult):
             return fb
@@ -308,7 +314,7 @@ def check_sql(sql: str, schema: RoleSchema) -> GuardResult:
         ok=True,
         tables=sorted(set(tables)),
         columns=sorted(set(columns)),
-        normalized_sql=tree.sql(dialect="duckdb"),
+        normalized_sql=tree.sql(dialect=DIALECT),
     )
 
 
@@ -332,73 +338,76 @@ def _fallback_columns(tree: Expression, tables: list[str], schema: RoleSchema) -
 
 
 # --------------------------------------------------------------------------- connection-level guard
-def open_role_connection(db_path: str | Path, rt: SqlRuntime) -> duckdb.DuckDBPyConnection:
-    """Read-only connection with external access disabled and a memory cap (rule 1)."""
-    return duckdb.connect(
-        str(db_path),
-        read_only=True,
-        config={
-            "enable_external_access": False,
-            "memory_limit": rt.memory_limit,
-            "threads": rt.threads,
-            "autoload_known_extensions": False,
-            "autoinstall_known_extensions": False,
-            "lock_configuration": True,
-        },
-    )
+def open_explain_connection(size: str, role: str) -> pymysql.connections.Connection:
+    """Connection used only for EXPLAIN of SQL the guard has already approved.
+
+    MySQL refuses EXPLAIN on a view unless the user may also read the view's base tables, which the role users
+    deliberately cannot. EXPLAIN does not execute the query; this connection is the admin account pointed at the
+    role database, in a READ ONLY session, and it never receives SQL that failed :func:`check_sql`.
+    """
+    from bazaar_world.mysqldb import admin_connect, db_name
+
+    con = admin_connect(db_name(size, role))
+    with con.cursor() as cur:
+        cur.execute("SET SESSION TRANSACTION READ ONLY")
+    return con
+
+
+def open_role_connection(size: str, role: str, rt: SqlRuntime) -> pymysql.connections.Connection:
+    """Role user (SELECT-only grants), READ ONLY session, statement time limit (rule 1)."""
+    from bazaar_world.mysqldb import role_connect
+
+    con = role_connect(size, role, read_timeout=int(rt.timeout_s * 3) + 5)
+    with con.cursor() as cur:
+        cur.execute(f"SET SESSION max_execution_time = {int(rt.timeout_s * 1000)}")
+    return con
 
 
 class QueryTimeout(RuntimeError):
     pass
 
 
+TIMEOUT_CODES = {3024, 1317, 2013}  # max_execution_time exceeded, query interrupted, lost connection
+
+
 def execute_with_timeout(
-    con: duckdb.DuckDBPyConnection, sql: str, timeout_s: float, max_rows: int
+    con: pymysql.connections.Connection,
+    sql: str,
+    timeout_s: float,
+    max_rows: int,
 ) -> tuple[list[str], list[tuple[Any, ...]], int]:
-    """Run ``sql``; interrupt it from a timer thread after ``timeout_s``. Returns (columns, rows, total)."""
-    timer = threading.Timer(timeout_s, con.interrupt)
-    timer.start()
+    """Run ``sql`` (stopped by MySQL after ``timeout_s``). Returns (columns, first ``max_rows`` rows, total rows)."""
+    from bazaar_world.mysqldb import fetch_with_columns
+
     try:
-        cur = con.execute(f"SELECT * FROM ({sql}) AS _q LIMIT {max_rows + 1}")
-        cols = [d[0] for d in cur.description or []]
-        rows = cur.fetchall()
-        total = len(rows)
-        if total > max_rows:
-            total = con.execute(f"SELECT COUNT(*) FROM ({sql}) AS _q").fetchone()[0]  # type: ignore[index]
-            rows = rows[:max_rows]
-        return cols, rows, int(total)
-    except duckdb.InterruptException as e:
-        raise QueryTimeout(f"query exceeded {timeout_s:.0f} s and was stopped") from e
-    finally:
-        timer.cancel()
+        return fetch_with_columns(con, sql, limit=max_rows)
+    except pymysql.MySQLError as e:
+        if e.args and e.args[0] in TIMEOUT_CODES:
+            raise QueryTimeout(f"query exceeded {timeout_s:.0f} s and was stopped") from e
+        raise
 
 
-def explain_cardinality(con: duckdb.DuckDBPyConnection, sql: str) -> int:
-    rows = con.execute(f"EXPLAIN (FORMAT json) {sql}").fetchall()
-    plan = json.loads(rows[0][1])
-    node = plan[0] if isinstance(plan, list) else plan
-
-    def card(n: dict[str, Any]) -> int | None:
-        v = n.get("extra_info", {}).get("Estimated Cardinality")
-        if v is not None:
-            try:
-                return int(str(v).replace("~", "").strip())
-            except ValueError:
-                return None
-        for ch in n.get("children", []):
-            c = card(ch)
-            if c is not None:
-                return c
-        return None
-
-    return card(node) or 0
+def explain_cardinality(con: pymysql.connections.Connection, sql: str) -> int:
+    """Estimated result rows from EXPLAIN: product of rows x filtered over the outer query's tables."""
+    with con.cursor(pymysql.cursors.DictCursor) as cur:
+        cur.execute(f"EXPLAIN {sql}")
+        plan = cur.fetchall()
+    est = 1.0
+    outer = [r for r in plan if r.get("id") == 1 and r.get("select_type") in ("SIMPLE", "PRIMARY")]
+    for r in outer or plan[:1]:
+        rows = float(r.get("rows") or 1)
+        filtered = float(r.get("filtered") or 100.0)
+        est *= max(1.0, rows * filtered / 100.0)
+    return int(min(est, 10**12))
 
 
-def cost_check(con: duckdb.DuckDBPyConnection, sql: str, rt: SqlRuntime) -> GuardResult | None:
+def cost_check(con: pymysql.connections.Connection, sql: str, rt: SqlRuntime) -> GuardResult | None:
     """Reject large unbounded result sets (no LIMIT and no aggregation above the row threshold)."""
-    tree = sqlglot.parse_one(sql, read="duckdb")
+    tree = sqlglot.parse_one(sql, read=DIALECT)
+    if _has_limit(tree) or _is_aggregate_query(tree):
+        return None
     est = explain_cardinality(con, sql)
-    if est > rt.explain_row_threshold and not _has_limit(tree) and not _is_aggregate_query(tree):
+    if est > rt.explain_row_threshold:
         return _reject(
             "too_many_rows",
             f"The query would return about {est:,} rows (limit "

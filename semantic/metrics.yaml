@@ -1,4 +1,4 @@
-# BazaarDW semantic layer: 24 official metric definitions (CLAUDE.md section 10).
+# BazaarDW semantic layer: 24 official metric definitions (CLAUDE.md section 10). SQL is MySQL 8 dialect.
 # Every `sql` is a reference query for the whole period [:start_date, :end_date] (inclusive Dhaka dates)
 # returning one column `value`. To break a metric down, keep its filters and add GROUP BY.
 # Common rules: exclude is_deleted rows; treat both 'cancelled' and 'canceled'; count only
@@ -92,7 +92,7 @@ metrics:
     sql: |
       SELECT COUNT(*) AS value FROM customers c
       WHERE NOT c.is_deleted
-        AND c.signup_month BETWEEN date_trunc('month', :start_date) AND :end_date
+        AND c.signup_month BETWEEN DATE_FORMAT(:start_date, '%Y-%m-01') AND :end_date
 
   repeat_rate:
     description: Share of active customers in the period with two or more valid orders in the period.
@@ -189,8 +189,8 @@ metrics:
     excludes: as late_delivery_rate
     notes: ''
     sql: |
-      SELECT AVG(date_diff('day', CAST(s.shipped_at_utc + INTERVAL 6 HOUR AS DATE),
-                           CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE))) AS value
+      SELECT AVG(DATEDIFF(CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE),
+                          CAST(s.shipped_at_utc + INTERVAL 6 HOUR AS DATE))) AS value
       FROM shipments s JOIN orders o ON o.order_id = s.order_id
       WHERE s.status = 'delivered' AND s.delivered_at_utc IS NOT NULL AND NOT o.is_deleted
         AND CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date
@@ -215,7 +215,7 @@ metrics:
     notes: Includes payouts not paid yet (paid_at IS NULL); filter on paid_at for cash paid.
     sql: |
       SELECT SUM(sp.gross_bdt - sp.commission_bdt) AS value FROM seller_payouts sp
-      WHERE sp.period_start BETWEEN date_trunc('month', :start_date) AND :end_date
+      WHERE sp.period_start BETWEEN DATE_FORMAT(:start_date, '%Y-%m-01') AND :end_date
 
   promo_redemption_rate:
     description: Share of valid orders that used a promotion.
@@ -269,7 +269,7 @@ metrics:
     excludes: open tickets (resolved_at_utc IS NULL)
     notes: ''
     sql: |
-      SELECT AVG(date_diff('second', t.created_at_utc, t.resolved_at_utc) / 3600.0) AS value
+      SELECT AVG(TIMESTAMPDIFF(SECOND, t.created_at_utc, t.resolved_at_utc) / 3600.0) AS value
       FROM support_tickets t
       WHERE t.resolved_at_utc IS NOT NULL
         AND CAST(t.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN :start_date AND :end_date

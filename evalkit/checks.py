@@ -74,7 +74,7 @@ def behaviour(v: AgentView) -> str:
 
 def tables_in_sql(sql: str) -> set[str]:
     try:
-        tree = sqlglot.parse_one(sql, read="duckdb")
+        tree = sqlglot.parse_one(sql, read="mysql")
     except SqlglotError:
         return set()
     ctes = {c.alias_or_name.lower() for c in tree.find_all(exp.CTE)}
@@ -83,7 +83,7 @@ def tables_in_sql(sql: str) -> set[str]:
 
 def _literals(sql: str) -> set[str]:
     try:
-        tree = sqlglot.parse_one(sql, read="duckdb")
+        tree = sqlglot.parse_one(sql, read="mysql")
     except SqlglotError:
         return set()
     out = set()
@@ -95,7 +95,7 @@ def _literals(sql: str) -> set[str]:
 
 def _aggregates(sql: str) -> tuple[list[str], int]:
     try:
-        tree = sqlglot.parse_one(sql, read="duckdb")
+        tree = sqlglot.parse_one(sql, read="mysql")
     except SqlglotError:
         return [], 0
     aggs = sorted(type(a).__name__ for a in tree.find_all(exp.AggFunc))
@@ -157,7 +157,8 @@ def check_f4_hallucination(v: AgentView) -> CheckResult:
         t
         for t in v.tool_calls
         if re.search(
-            r"does not exist|not found|Referenced column", str((t.get("meta") or {}).get("db_error", ""))
+            r"does not exist|doesn't exist|not found|Referenced column|Unknown column|Unknown table",
+            str((t.get("meta") or {}).get("db_error", "")),
         )
     ]
     n = len(bad) + len(db_err)

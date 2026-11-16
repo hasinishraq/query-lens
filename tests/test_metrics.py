@@ -1,9 +1,9 @@
 from datetime import date
 
-import duckdb
 import pytest
 import sqlglot
 
+from bazaar_world.mysqldb import fetchall, role_connect
 from querylens.semantic import load_metrics, render
 
 NAMES = [
@@ -40,9 +40,9 @@ def test_metric_names():
 
 @pytest.mark.parametrize("name", NAMES)
 def test_metric_runs_small(analyst_db, name):
-    con = duckdb.connect(str(analyst_db), read_only=True)
+    con = role_connect("small", "analyst")
     try:
-        rows = con.execute(render(load_metrics()[name].sql, date(2025, 1, 1), date(2025, 12, 31))).fetchall()
+        rows = fetchall(con, render(load_metrics()[name].sql, date(2025, 1, 1), date(2025, 12, 31)))
     finally:
         con.close()
     assert len(rows) == 1
@@ -52,9 +52,9 @@ def test_metric_runs_small(analyst_db, name):
 @pytest.mark.full
 @pytest.mark.parametrize("name", NAMES)
 def test_metric_runs_full(full_db, name):
-    con = duckdb.connect(str(full_db.parent / "bazaar_full__analyst.duckdb"), read_only=True)
+    con = role_connect("full", "analyst")
     try:
-        rows = con.execute(render(load_metrics()[name].sql)).fetchall()
+        rows = fetchall(con, render(load_metrics()[name].sql))
     finally:
         con.close()
     assert len(rows) == 1
@@ -63,7 +63,7 @@ def test_metric_runs_full(full_db, name):
 
 def test_metric_tables_match_sql():
     for name, m in load_metrics().items():
-        tree = sqlglot.parse_one(render(m.sql), read="duckdb")
+        tree = sqlglot.parse_one(render(m.sql), read="mysql")
         ctes = {c.alias for c in tree.find_all(sqlglot.exp.CTE)}
         used = {t.name for t in tree.find_all(sqlglot.exp.Table)} - ctes
         assert used == set(m.tables), (name, used, m.tables)
@@ -71,11 +71,11 @@ def test_metric_tables_match_sql():
 
 def test_gmv_equals_aov_times_count(analyst_db):
     m = load_metrics()
-    con = duckdb.connect(str(analyst_db), read_only=True)
+    con = role_connect("small", "analyst")
     try:
-        g = con.execute(render(m["gmv"].sql)).fetchone()[0]
-        a = con.execute(render(m["aov"].sql)).fetchone()[0]
-        n = con.execute(render(m["order_count"].sql)).fetchone()[0]
+        g = float(fetchall(con, render(m["gmv"].sql))[0][0])
+        a = float(fetchall(con, render(m["aov"].sql))[0][0])
+        n = float(fetchall(con, render(m["order_count"].sql))[0][0])
     finally:
         con.close()
     assert g == pytest.approx(a * n, rel=1e-9)

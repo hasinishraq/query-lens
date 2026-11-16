@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
+import re
 from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any
 
-import duckdb
 import numpy as np
+import pymysql
 
 from .checks import tables_in_sql
 
@@ -29,30 +29,20 @@ def percentile(values: Iterable[float], q: float) -> float:
     return float(np.percentile(v, q)) if v else float("nan")
 
 
-def rows_scanned(con: duckdb.DuckDBPyConnection, sql: str) -> int:
-    """Rows read by table scans, from DuckDB's EXPLAIN ANALYZE profile."""
+def rows_scanned(con: pymysql.connections.Connection, sql: str) -> int:
+    """Rows read by table/index scans, from MySQL 8 EXPLAIN ANALYZE (sum of actual rows on scan steps)."""
     try:
-        rows = con.execute(f"EXPLAIN (ANALYZE, FORMAT json) {sql}").fetchall()
-    except duckdb.Error:
+        with con.cursor() as cur:
+            cur.execute(f"EXPLAIN ANALYZE {sql}")
+            text = "\n".join(str(r[0]) for r in cur.fetchall())
+    except pymysql.MySQLError:
         return -1
-    plan = json.loads(rows[0][1])
     total = 0
-
-    def walk(n: Any) -> None:
-        nonlocal total
-        if isinstance(n, list):
-            for x in n:
-                walk(x)
-            return
-        if not isinstance(n, dict):
-            return
-        name = str(n.get("operator_name") or n.get("operator_type") or n.get("name") or "")
-        if "SCAN" in name.upper():
-            total += int(n.get("operator_rows_scanned") or n.get("operator_cardinality") or 0)
-        for ch in n.get("children", []):
-            walk(ch)
-
-    walk(plan)
+    for line in text.splitlines():
+        if re.search(r"(Table scan|Index scan|Index lookup|Index range scan|Covering index)", line):
+            m = re.search(r"\(actual time=[^)]*?rows=(\d+)(?: loops=(\d+))?", line)
+            if m:
+                total += int(m.group(1)) * int(m.group(2) or 1)
     return total
 
 

@@ -21,13 +21,13 @@ def cmd_datasets(a: argparse.Namespace) -> int:
     if a.action == "build":
         from .scenarios.build import build
 
-        sets = build(ROOT / "data" / "bazaar_full.duckdb", ROOT / "data" / "bazaar_small.duckdb")
+        sets = build()
         print(json.dumps({k: len(v) for k, v in sets.items()}))
         return 0
     if a.action == "gold":
         bad = 0
         for snap in a.snapshots.split(","):
-            r = build_gold_results(snap, ROOT / "data")
+            r = build_gold_results(snap)
             print(f"{snap}: {r['n']} gold results, {len(r['problems'])} problems")
             for p in r["problems"]:
                 print("  ", p)

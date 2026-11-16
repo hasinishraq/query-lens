@@ -6,7 +6,6 @@ import hashlib
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -15,7 +14,7 @@ from evalkit.trace import Span, Trace, TraceStore
 
 from .config import AgentConfig, ModelRef, load_runtime, shadow_cost_usd
 from .llm import AllModelsFailed, LLMClient, LLMResponse, estimate_tokens
-from .paths import PROMPTS, db_path
+from .paths import PROMPTS
 from .tools import TOOL_SPECS, Toolbox
 
 log = logging.getLogger(__name__)
@@ -92,7 +91,6 @@ class Agent:
         size: str = "full",
         llm: LLMClient | None = None,
         store: TraceStore | None = None,
-        db: str | Path | None = None,
     ) -> None:
         self.cfg = cfg
         self.role = role
@@ -100,9 +98,8 @@ class Agent:
         self.llm = llm or LLMClient()
         self.store = store
         self.rt = load_runtime()
-        self.db = str(db or db_path(size, role))
         self.system, self.prompt_hash = load_prompt(cfg.prompt, role)
-        self.toolbox = Toolbox(role, self.db, self.rt)
+        self.toolbox = Toolbox(role, size, self.rt)
 
     def close(self) -> None:
         self.toolbox.close()

@@ -1,1 +1,1 @@
-SELECT COUNT(session_id), COUNT(*) FILTER (WHERE added_to_cart), COUNT(*) FILTER (WHERE converted_order_id IS NOT NULL) FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2026-04-01' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2026-04-30' + INTERVAL 18 HOUR
+SELECT COUNT(session_id), SUM(CASE WHEN added_to_cart THEN 1 ELSE 0 END), SUM(CASE WHEN converted_order_id IS NOT NULL THEN 1 ELSE 0 END) FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2026-04-01 00:00:00' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2026-04-30 00:00:00' + INTERVAL 18 HOUR

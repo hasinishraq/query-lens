@@ -9,13 +9,13 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import yaml
 
 from .core import WORLD_DIR
 from .dictionary_src import COL_DOCS, DOMAIN_SYNONYMS, TABLE_DOCS
-from .roles import ROLES, role_columns
-from .schema import FOREIGN_KEYS, TABLE_BY_NAME, TABLES
+from .mysqldb import ROLES, admin_connect, db_name, fetchall
+from .roles import role_columns
+from .schema import FOREIGN_KEYS, TABLE_BY_NAME, TABLES, mysql_type
 
 DICT_PATH = WORLD_DIR / "dictionary.yaml"
 PII_EXAMPLE = {
@@ -29,17 +29,19 @@ PII_EXAMPLE = {
 }
 
 
-def _examples(con: duckdb.DuckDBPyConnection, table: str, col: str) -> list[Any]:
-    rows = con.execute(
-        f'SELECT DISTINCT CAST("{col}" AS VARCHAR) FROM "{table}" WHERE "{col}" IS NOT NULL ORDER BY 1 LIMIT 3'
-    ).fetchall()
+def _examples(con: Any, table: str, col: str) -> list[Any]:
+    rows = fetchall(
+        con,
+        f"SELECT DISTINCT CAST(`{col}` AS CHAR) AS v FROM `{table}` WHERE `{col}` IS NOT NULL "
+        f"ORDER BY v LIMIT 3",
+    )
     return [r[0][:60] for r in rows]
 
 
-def build_dictionary(db_path: Path) -> dict[str, Any]:
-    con = duckdb.connect(str(db_path), read_only=True)
+def build_dictionary(size: str) -> dict[str, Any]:
+    con = admin_connect(db_name(size))
     try:
-        views = {role: role_columns(con, schema) for role, schema in ROLES.items()}
+        views = {role: role_columns(con, db_name(size, role)) for role in ROLES}
         out: dict[str, Any] = {"version": 1, "tables": {}}
         for t in TABLES:
             desc, notes = TABLE_DOCS[t.name]
@@ -48,7 +50,7 @@ def build_dictionary(db_path: Path) -> dict[str, Any]:
             for c, typ in t.columns:
                 entry: dict[str, Any] = {
                     "description": COL_DOCS[t.name][c],
-                    "type": typ,
+                    "type": mysql_type(c, typ),
                     "examples": [PII_EXAMPLE[c]]
                     if c in t.pii
                     else (["<untrusted text>"] if c in t.untrusted else _examples(con, t.name, c)),
@@ -81,7 +83,7 @@ def build_dictionary(db_path: Path) -> dict[str, Any]:
                 for (tt, c), (rt, rc) in FOREIGN_KEYS.items()
                 if rt == t.name and tt != t.name
             ]
-            n = con.execute(f'SELECT COUNT(*) FROM "{t.name}"').fetchone()
+            n = fetchall(con, f"SELECT COUNT(*) FROM `{t.name}`")[0]
             out["tables"][t.name] = {
                 "description": desc,
                 "domain": t.domain,
@@ -104,7 +106,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--size", default="small")
     ap.add_argument("--data", type=Path, default=Path("data"))
     a = ap.parse_args(argv)
-    d = build_dictionary(a.data / f"bazaar_{a.size}.duckdb")
+    d = build_dictionary(a.size)
     for t in d["tables"].values():
         t.pop("row_count_built", None)
     with open(DICT_PATH, "w", encoding="utf-8") as f:

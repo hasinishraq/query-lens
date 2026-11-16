@@ -7,11 +7,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import duckdb
 import yaml
 
 from .core import WORLD_DIR
-from .roles import ROLES, role_columns
+from .mysqldb import ROLES, admin_connect, db_name
+from .roles import role_columns
+from .schema import TABLE_BY_NAME, mysql_data_type
 
 
 def load_dictionary(path: Path | None = None) -> dict[str, Any]:
@@ -19,11 +20,11 @@ def load_dictionary(path: Path | None = None) -> dict[str, Any]:
         return yaml.safe_load(f)
 
 
-def check(db_path: Path, dictionary: dict[str, Any]) -> list[str]:
+def check(size: str, dictionary: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    con = duckdb.connect(str(db_path), read_only=True)
+    con = admin_connect(db_name(size))
     try:
-        base = role_columns(con, "main")
+        base = role_columns(con, db_name(size))
         tables = dictionary["tables"]
         for t, cols in base.items():
             if t not in tables:
@@ -33,8 +34,10 @@ def check(db_path: Path, dictionary: dict[str, Any]) -> list[str]:
             for c, typ in cols:
                 if c not in dcols:
                     errors.append(f"column {t}.{c} missing from dictionary")
-                elif not dcols[c].get("derived") and dcols[c]["type"].upper() != typ.upper():
-                    errors.append(f"type mismatch {t}.{c}: db {typ} vs dictionary {dcols[c]['type']}")
+                elif not dcols[c].get("derived"):
+                    logical = dict(TABLE_BY_NAME[t].columns)[c]
+                    if typ.lower() != mysql_data_type(c, logical):
+                        errors.append(f"type mismatch {t}.{c}: db {typ} vs dictionary {dcols[c]['type']}")
             for c, entry in dcols.items():
                 if entry.get("derived"):
                     continue
@@ -43,7 +46,8 @@ def check(db_path: Path, dictionary: dict[str, Any]) -> list[str]:
         for t in tables:
             if t not in base:
                 errors.append(f"dictionary table {t} not in database")
-        for role, schema in ROLES.items():
+        for role in ROLES:
+            schema = db_name(size, role)
             for t, cols in role_columns(con, schema).items():
                 for c, _ in cols:
                     entry = tables.get(t, {}).get("columns", {}).get(c)
@@ -61,7 +65,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--size", default="small")
     ap.add_argument("--data", type=Path, default=Path("data"))
     a = ap.parse_args(argv)
-    errs = check(a.data / f"bazaar_{a.size}.duckdb", load_dictionary())
+    errs = check(a.size, load_dictionary())
     for e in errs:
         print("ERROR", e)
     n_cols = sum(len(t["columns"]) for t in load_dictionary()["tables"].values())

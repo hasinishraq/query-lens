@@ -26,7 +26,7 @@ tables:
     columns:
       region_id:
         description: Division id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -36,7 +36,7 @@ tables:
         - support
       name:
         description: Division name in English (e.g. Dhaka, Chattogram).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Barishal
         - Chattogram
@@ -46,7 +46,7 @@ tables:
         - support
       name_bn:
         description: Division name in Bangla.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - খুলনা
         - চট্টগ্রাম
@@ -58,7 +58,7 @@ tables:
         description: Population in millions.
         type: DOUBLE
         examples:
-        - '11.0'
+        - '11'
         - '12.2'
         - '17.4'
         views:
@@ -94,7 +94,7 @@ tables:
     columns:
       city_id:
         description: District id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -104,7 +104,7 @@ tables:
         - support
       region_id:
         description: Division of the district.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -115,7 +115,7 @@ tables:
         references: regions.region_id
       name:
         description: District name.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Bagerhat
         - Bandarban
@@ -125,7 +125,7 @@ tables:
         - support
       name_bn:
         description: District name in Bangla.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - কক্সবাজার
         - কিশোরগঞ্জ
@@ -137,14 +137,14 @@ tables:
         description: True for the 11 metropolitan districts.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
       courier_zone:
         description: 'Delivery zone: inside_dhaka, dhaka_suburb or outside_dhaka (sets SLA and fee).'
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - dhaka_suburb
         - inside_dhaka
@@ -178,7 +178,7 @@ tables:
     columns:
       date_key:
         description: Date as integer YYYYMMDD.
-        type: INTEGER
+        type: INT
         examples:
         - '20240101'
         - '20240102'
@@ -200,7 +200,7 @@ tables:
         - finance
       year:
         description: Calendar year.
-        type: INTEGER
+        type: INT
         examples:
         - '2024'
         - '2025'
@@ -211,7 +211,7 @@ tables:
         - finance
       quarter:
         description: Calendar quarter 1-4.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -222,7 +222,7 @@ tables:
         - finance
       month:
         description: Month number 1-12.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -233,7 +233,7 @@ tables:
         - finance
       month_name:
         description: Month name in English.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - April
         - August
@@ -244,7 +244,7 @@ tables:
         - finance
       week_of_year:
         description: ISO week number.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -255,7 +255,7 @@ tables:
         - finance
       day_of_week:
         description: Day name (Monday..Sunday).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Friday
         - Monday
@@ -268,8 +268,8 @@ tables:
         description: True on Friday and Saturday.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
@@ -278,15 +278,15 @@ tables:
         description: True on public holidays and the 11.11 sale day.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
         - finance
       holiday_name:
         description: Holiday name, NULL on normal days.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - 11.11 Mega Sale
         - Christmas Day
@@ -297,7 +297,7 @@ tables:
         - finance
       fiscal_year:
         description: Fiscal year (July-June) named by its ending year.
-        type: INTEGER
+        type: INT
         examples:
         - '2024'
         - '2025'
@@ -341,7 +341,7 @@ tables:
         - finance
       currency:
         description: Foreign currency code (USD).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - USD
         views:
@@ -359,7 +359,7 @@ tables:
         - finance
       source:
         description: Rate source.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - bangladesh_bank
         views:
@@ -398,7 +398,7 @@ tables:
     columns:
       customer_id:
         description: Customer id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -408,7 +408,7 @@ tables:
         - support
       full_name:
         description: Customer full name (PII).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <name>
         views:
@@ -416,21 +416,21 @@ tables:
         pii: true
       email:
         description: Email address (PII).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <email>
         views: []
         pii: true
       phone:
         description: Mobile number (PII), +8801XXXXXXXXX or 01XXXXXXXXX.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <+8801XXXXXXXXX>
         views: []
         pii: true
       gender:
         description: female, male or other.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - female
         - male
@@ -438,7 +438,7 @@ tables:
         views: []
       birth_year:
         description: Year of birth.
-        type: INTEGER
+        type: INT
         examples:
         - '1960'
         - '1961'
@@ -446,7 +446,7 @@ tables:
         views: []
       city_id:
         description: Home district of the customer.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -457,7 +457,7 @@ tables:
         references: cities.city_id
       signup_at:
         description: Signup time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-01 07:18:21'
         - '2022-06-01 08:44:50'
@@ -466,7 +466,7 @@ tables:
         - support
       signup_channel:
         description: app, web or social_commerce.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - app
         - social_commerce
@@ -475,7 +475,7 @@ tables:
         - analyst
       acquisition_source:
         description: How the customer was acquired (campaign name for campaign signups).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - AlwaysOn-facebook-202401
         - AlwaysOn-facebook-202402
@@ -486,14 +486,14 @@ tables:
         description: Phone verified.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
       preferred_language:
         description: bn or en.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - bn
         - en
@@ -504,14 +504,14 @@ tables:
         description: Soft-deleted account.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
       updated_at:
         description: Last profile update (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-12 17:38:30'
         - '2022-06-12 20:23:18'
@@ -519,7 +519,7 @@ tables:
         views: []
       signup_month:
         description: First day of the signup month (analyst view only; derived from signup_at).
-        type: DATE
+        type: date
         examples: []
         views:
         - analyst
@@ -549,7 +549,7 @@ tables:
     columns:
       address_id:
         description: Address id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -559,7 +559,7 @@ tables:
         - support
       customer_id:
         description: Owner customer.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -570,7 +570,7 @@ tables:
         references: customers.customer_id
       city_id:
         description: District of the address.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -581,21 +581,21 @@ tables:
         references: cities.city_id
       street_address:
         description: Street address (PII).
-        type: VARCHAR
+        type: TEXT
         examples:
         - <street>
         views: []
         pii: true
       postcode:
         description: Postcode (PII).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <4 digits>
         views: []
         pii: true
       address_type:
         description: home, office or other.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - home
         - office
@@ -607,14 +607,14 @@ tables:
         description: Customer's default address.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
       created_at:
         description: Creation time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-01 07:18:21'
         - '2022-06-01 08:44:50'
@@ -625,8 +625,8 @@ tables:
         description: Soft-deleted address.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
@@ -653,7 +653,7 @@ tables:
     columns:
       segment_hist_id:
         description: History row id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -662,7 +662,7 @@ tables:
         - analyst
       customer_id:
         description: Customer.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -672,7 +672,7 @@ tables:
         references: customers.customer_id
       segment:
         description: new, regular, loyal, vip, at_risk or churned.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - at_risk
         - churned
@@ -701,8 +701,8 @@ tables:
         description: True for the current row.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
   loyalty_accounts:
@@ -727,7 +727,7 @@ tables:
     columns:
       loyalty_id:
         description: Loyalty account id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -736,7 +736,7 @@ tables:
         - analyst
       customer_id:
         description: Member customer.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '100'
@@ -746,7 +746,7 @@ tables:
         references: customers.customer_id
       tier:
         description: basic, silver, gold or platinum.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - basic
         - gold
@@ -755,7 +755,7 @@ tables:
         - analyst
       points_balance:
         description: Current points balance.
-        type: INTEGER
+        type: INT
         examples:
         - '0'
         - '1'
@@ -764,7 +764,7 @@ tables:
         - analyst
       enrolled_at:
         description: Enrolment time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-05 03:38:48'
         - '2022-06-25 22:12:00'
@@ -773,7 +773,7 @@ tables:
         - analyst
       status:
         description: active or inactive.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - active
         - inactive
@@ -802,7 +802,7 @@ tables:
     columns:
       loyalty_txn_id:
         description: Transaction id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -811,7 +811,7 @@ tables:
         - analyst
       loyalty_id:
         description: Loyalty account.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -821,7 +821,7 @@ tables:
         references: loyalty_accounts.loyalty_id
       order_id:
         description: Order that earned or redeemed points (NULL for expiries).
-        type: INTEGER
+        type: INT
         examples:
         - '10'
         - '10003'
@@ -831,7 +831,7 @@ tables:
         references: orders.order_id
       txn_type:
         description: earn, redeem or expire.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - earn
         - expire
@@ -840,7 +840,7 @@ tables:
         - analyst
       points:
         description: Points moved (positive).
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -849,7 +849,7 @@ tables:
         - analyst
       txn_at:
         description: Transaction time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 18:26:41'
         - '2024-01-02 00:07:30'
@@ -858,7 +858,7 @@ tables:
         - analyst
       expires_at:
         description: Expiry of earned points (NULL for redeem/expire).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2025-01-02 04:19:59'
         - '2025-01-02 11:11:57'
@@ -888,7 +888,7 @@ tables:
     columns:
       category_id:
         description: Category id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -897,7 +897,7 @@ tables:
         - analyst
       parent_category_id:
         description: Parent category (NULL for level 1).
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -907,7 +907,7 @@ tables:
         references: categories.category_id
       name:
         description: Category name.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Abaya
         - Accessories
@@ -916,7 +916,7 @@ tables:
         - analyst
       level:
         description: 1 = department, 2 = sub-category, 3 = leaf.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -925,7 +925,7 @@ tables:
         - analyst
       path:
         description: Full path, e.g. 'Fashion > Men's Clothing > Panjabi'.
-        type: VARCHAR
+        type: TEXT
         examples:
         - Automotive
         - Automotive > Car Accessories
@@ -953,7 +953,7 @@ tables:
     columns:
       brand_id:
         description: Brand id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -962,7 +962,7 @@ tables:
         - analyst
       name:
         description: Brand name.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Bobo
         - Bodexvia
@@ -971,7 +971,7 @@ tables:
         - analyst
       country:
         description: Brand country of origin.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Bangladesh
         - China
@@ -982,8 +982,8 @@ tables:
         description: True for Bangladeshi brands.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
   products:
@@ -1014,7 +1014,7 @@ tables:
     columns:
       product_id:
         description: Product id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1024,7 +1024,7 @@ tables:
         - support
       seller_id:
         description: Seller listing the product.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1035,7 +1035,7 @@ tables:
         references: sellers.seller_id
       brand_id:
         description: Brand.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1045,7 +1045,7 @@ tables:
         references: brands.brand_id
       category_id:
         description: Leaf category.
-        type: INTEGER
+        type: INT
         examples:
         - '100'
         - '101'
@@ -1056,7 +1056,7 @@ tables:
         references: categories.category_id
       name:
         description: Product name (not unique).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Bobo Classic Milk Powder 871
         - Bobo Classic Streaming Devices 929
@@ -1066,7 +1066,7 @@ tables:
         - support
       description:
         description: Short product description.
-        type: VARCHAR
+        type: TEXT
         examples:
         - Abaya by Dexmiko. Essential quality, ideal for everyday use.
         - Abaya by Dexvezen. Smart quality, ideal for everyday use.
@@ -1077,14 +1077,14 @@ tables:
         description: Original list price in BDT.
         type: DOUBLE
         examples:
-        - '100.0'
-        - '1000.0'
-        - '10060.0'
+        - '100'
+        - '1000'
+        - '10060'
         views:
         - analyst
       created_at:
         description: Listing time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2021-01-02 10:05:22'
         - '2021-01-16 16:30:52'
@@ -1093,7 +1093,7 @@ tables:
         - analyst
       status:
         description: active, inactive or archived.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - active
         - archived
@@ -1105,14 +1105,14 @@ tables:
         description: Soft-deleted product.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
       weight_g:
         description: Shipping weight in grams.
-        type: INTEGER
+        type: INT
         examples:
         - '100'
         - '1000'
@@ -1123,8 +1123,8 @@ tables:
         description: Imported product.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
   product_variants:
@@ -1152,7 +1152,7 @@ tables:
     columns:
       variant_id:
         description: Variant id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1162,7 +1162,7 @@ tables:
         - support
       product_id:
         description: Parent product.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1173,7 +1173,7 @@ tables:
         references: products.product_id
       sku:
         description: Stock keeping unit.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - BZ-00001-000001
         - BZ-00002-000002
@@ -1183,7 +1183,7 @@ tables:
         - support
       size:
         description: Size for apparel (NULL otherwise).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - L
         - M
@@ -1193,7 +1193,7 @@ tables:
         - support
       colour:
         description: Colour.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - beige
         - black
@@ -1205,14 +1205,14 @@ tables:
         description: Initial price difference vs the product list price.
         type: DOUBLE
         examples:
-        - '-0.0'
-        - '-10.0'
-        - '-100.0'
+        - '-0'
+        - '-10'
+        - '-100'
         views:
         - analyst
       barcode:
         description: EAN-13 barcode.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - '1000916146528'
         - '1003605335561'
@@ -1223,8 +1223,8 @@ tables:
         description: Variant is sellable.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
   product_price_history:
@@ -1250,7 +1250,7 @@ tables:
     columns:
       price_hist_id:
         description: History row id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1259,7 +1259,7 @@ tables:
         - analyst
       variant_id:
         description: Variant.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1271,9 +1271,9 @@ tables:
         description: Selling price in BDT during the validity window.
         type: DOUBLE
         examples:
-        - '100.0'
-        - '1000.0'
-        - '10004.0'
+        - '100'
+        - '1000'
+        - '10004'
         views:
         - analyst
       valid_from:
@@ -1296,7 +1296,7 @@ tables:
         - analyst
       change_reason:
         description: initial, promotion, cost_increase, competitor, seasonal, clearance.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - clearance
         - competitor
@@ -1331,7 +1331,7 @@ tables:
     columns:
       seller_id:
         description: Seller id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1342,7 +1342,7 @@ tables:
         - finance
       name:
         description: Shop display name (not unique).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Atrai Bazar
         - Atrai Boutique
@@ -1353,7 +1353,7 @@ tables:
         - finance
       legal_name:
         description: Registered business name.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Atrai Bazar Enterprise
         - Atrai Boutique Enterprise
@@ -1362,7 +1362,7 @@ tables:
         - analyst
       city_id:
         description: Seller home district.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1373,7 +1373,7 @@ tables:
         references: cities.city_id
       joined_at:
         description: Onboarding time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2021-01-02 11:00:00'
         - '2021-01-07 09:00:00'
@@ -1382,7 +1382,7 @@ tables:
         - analyst
       seller_type:
         description: brand_official, sme or individual.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - brand_official
         - individual
@@ -1392,21 +1392,21 @@ tables:
         - finance
       contact_email:
         description: Contact email (PII).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <email>
         views: []
         pii: true
       contact_phone:
         description: Contact phone (PII).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - <+8801XXXXXXXXX>
         views: []
         pii: true
       status:
         description: active or suspended.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - active
         - suspended
@@ -1445,7 +1445,7 @@ tables:
     columns:
       tier_hist_id:
         description: History row id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1454,7 +1454,7 @@ tables:
         - analyst
       seller_id:
         description: Seller.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1464,7 +1464,7 @@ tables:
         references: sellers.seller_id
       tier:
         description: bronze, silver, gold or platinum.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - bronze
         - gold
@@ -1513,7 +1513,7 @@ tables:
     columns:
       payout_id:
         description: Payout id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1523,7 +1523,7 @@ tables:
         - finance
       seller_id:
         description: Seller.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1556,9 +1556,9 @@ tables:
         description: Delivered item value of the month (BDT).
         type: DOUBLE
         examples:
-        - '0.0'
-        - '100.0'
-        - '1000.0'
+        - '0'
+        - '100'
+        - '1000'
         views:
         - analyst
         - finance
@@ -1566,7 +1566,7 @@ tables:
         description: Commission kept by the marketplace (BDT).
         type: DOUBLE
         examples:
-        - '0.0'
+        - '0'
         - '10.2'
         - '10.3'
         views:
@@ -1574,7 +1574,7 @@ tables:
         - finance
       paid_at:
         description: Payment time (NULL if not paid yet).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-02-07 11:00:00'
         - '2024-03-07 11:00:00'
@@ -1604,7 +1604,7 @@ tables:
     columns:
       warehouse_id:
         description: Warehouse id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1613,7 +1613,7 @@ tables:
         - analyst
       name:
         description: Warehouse name, e.g. Gazipur-2.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Barishal-1
         - Bogura-1
@@ -1622,7 +1622,7 @@ tables:
         - analyst
       city_id:
         description: District of the warehouse.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '14'
@@ -1632,7 +1632,7 @@ tables:
         references: cities.city_id
       capacity_units:
         description: Storage capacity in units.
-        type: INTEGER
+        type: INT
         examples:
         - '110000'
         - '120000'
@@ -1652,8 +1652,8 @@ tables:
         description: Currently operating.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
   inventory_snapshots:
@@ -1689,7 +1689,7 @@ tables:
         - analyst
       warehouse_id:
         description: Warehouse.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1699,7 +1699,7 @@ tables:
         references: warehouses.warehouse_id
       variant_id:
         description: Variant.
-        type: INTEGER
+        type: INT
         examples:
         - '10046'
         - '10075'
@@ -1709,7 +1709,7 @@ tables:
         references: product_variants.variant_id
       on_hand_units:
         description: Units physically in stock (0 = stockout).
-        type: INTEGER
+        type: INT
         examples:
         - '0'
         - '21'
@@ -1718,7 +1718,7 @@ tables:
         - analyst
       reserved_units:
         description: Units reserved for open orders.
-        type: INTEGER
+        type: INT
         examples:
         - '0'
         - '1'
@@ -1727,7 +1727,7 @@ tables:
         - analyst
       reorder_point:
         description: Stock level that triggers reordering.
-        type: INTEGER
+        type: INT
         examples:
         - '10'
         - '15'
@@ -1774,7 +1774,7 @@ tables:
     columns:
       order_id:
         description: Order id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1785,7 +1785,7 @@ tables:
         - finance
       customer_id:
         description: Customer who placed the order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1796,7 +1796,7 @@ tables:
         references: customers.customer_id
       address_id:
         description: Delivery address used.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1807,7 +1807,7 @@ tables:
         references: customer_addresses.address_id
       order_at:
         description: Checkout time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 05:01:49'
         - '2024-01-01 07:58:05'
@@ -1818,7 +1818,7 @@ tables:
         - finance
       status:
         description: delivered, in_transit, returned, payment_failed, cancelled or canceled.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - canceled
         - cancelled
@@ -1829,7 +1829,7 @@ tables:
         - finance
       channel:
         description: app, web or social_commerce.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - app
         - social_commerce
@@ -1840,7 +1840,7 @@ tables:
         - finance
       currency:
         description: BDT or USD.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - BDT
         - USD
@@ -1863,16 +1863,16 @@ tables:
         description: Order total in BDT; NULL for USD orders.
         type: DOUBLE
         examples:
-        - '100.0'
+        - '100'
         - '100.8'
-        - '1000.0'
+        - '1000'
         views:
         - analyst
         - support
         - finance
       promo_id:
         description: Promotion used (NULL if none).
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1886,15 +1886,15 @@ tables:
         description: Soft-deleted (test/fraud) order.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
         - finance
       updated_at:
         description: Last update time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-02 11:34:32'
         - '2024-01-02 23:23:54'
@@ -1905,7 +1905,7 @@ tables:
         - finance
       device_type:
         description: android, ios, desktop or mobile_web.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - android
         - desktop
@@ -1941,7 +1941,7 @@ tables:
     columns:
       order_item_id:
         description: Item id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1951,7 +1951,7 @@ tables:
         - support
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1962,7 +1962,7 @@ tables:
         references: orders.order_id
       variant_id:
         description: Variant sold.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1973,7 +1973,7 @@ tables:
         references: product_variants.variant_id
       seller_id:
         description: Seller of the item.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -1984,7 +1984,7 @@ tables:
         references: sellers.seller_id
       quantity:
         description: Units.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -2006,7 +2006,7 @@ tables:
         description: Promotion discount on this line (BDT).
         type: DOUBLE
         examples:
-        - '0.0'
+        - '0'
         - '0.11'
         - '0.16'
         views:
@@ -2016,7 +2016,7 @@ tables:
         description: Line value in BDT after discount.
         type: DOUBLE
         examples:
-        - '100.0'
+        - '100'
         - '100.06'
         - '100.08'
         views:
@@ -2026,8 +2026,8 @@ tables:
         description: Gift-wrapped item.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
@@ -2054,7 +2054,7 @@ tables:
     columns:
       event_id:
         description: Event id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2064,7 +2064,7 @@ tables:
         - support
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2075,7 +2075,7 @@ tables:
         references: orders.order_id
       status:
         description: placed, confirmed, shipped, delivered, returned, payment_failed, cancelled/canceled.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - canceled
         - cancelled
@@ -2085,7 +2085,7 @@ tables:
         - support
       event_at_utc:
         description: Event time (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2023-12-31 23:01:49'
         - '2024-01-01 01:58:05'
@@ -2095,7 +2095,7 @@ tables:
         - support
       actor:
         description: customer, seller, courier or system.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - courier
         - customer
@@ -2132,7 +2132,7 @@ tables:
     columns:
       payment_id:
         description: Payment attempt id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2143,7 +2143,7 @@ tables:
         - finance
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2155,7 +2155,7 @@ tables:
         references: orders.order_id
       method:
         description: bkash, nagad, card, bank_transfer or cod.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - bank_transfer
         - bkash
@@ -2166,18 +2166,18 @@ tables:
         - finance
       provider:
         description: Payment provider.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
+        - aamarPay
+        - bKash
         - BRAC Bank
-        - City Bank
-        - Dutch-Bangla Bank
         views:
         - analyst
         - support
         - finance
       attempt_no:
         description: 1 for the first attempt, increasing for retries.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -2188,7 +2188,7 @@ tables:
         - finance
       status:
         description: captured, failed, pending (COD not yet delivered) or voided (cancelled order).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - captured
         - failed
@@ -2201,16 +2201,16 @@ tables:
         description: Attempted amount in BDT.
         type: DOUBLE
         examples:
-        - '100.0'
+        - '100'
         - '100.34'
-        - '1000.0'
+        - '1000'
         views:
         - analyst
         - support
         - finance
       created_at_utc:
         description: Attempt time (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2023-12-31 23:05:52'
         - '2024-01-01 02:00:02'
@@ -2221,7 +2221,7 @@ tables:
         - finance
       captured_at_utc:
         description: Capture time (UTC); NULL unless captured.
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2023-12-31 23:06:19'
         - '2024-01-01 02:00:19'
@@ -2257,7 +2257,7 @@ tables:
     columns:
       refund_id:
         description: Refund id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2268,7 +2268,7 @@ tables:
         - finance
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '10007'
         - '10011'
@@ -2280,7 +2280,7 @@ tables:
         references: orders.order_id
       payment_id:
         description: Captured payment refunded.
-        type: INTEGER
+        type: INT
         examples:
         - '10003'
         - '10034'
@@ -2295,7 +2295,7 @@ tables:
         type: DOUBLE
         examples:
         - '10.68'
-        - '100.0'
+        - '100'
         - '100.63'
         views:
         - analyst
@@ -2303,7 +2303,7 @@ tables:
         - finance
       reason:
         description: Refund reason.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - damaged_in_transit
         - damaged_item
@@ -2314,7 +2314,7 @@ tables:
         - finance
       requested_at:
         description: Request time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-09 23:16:56'
         - '2024-01-10 21:33:12'
@@ -2325,7 +2325,7 @@ tables:
         - finance
       processed_at:
         description: Processing time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-10 16:49:30'
         - '2024-01-12 14:01:42'
@@ -2360,7 +2360,7 @@ tables:
     columns:
       return_id:
         description: Return id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2371,7 +2371,7 @@ tables:
         - finance
       order_item_id:
         description: Returned item.
-        type: INTEGER
+        type: INT
         examples:
         - '100010'
         - '10013'
@@ -2383,7 +2383,7 @@ tables:
         references: order_items.order_item_id
       quantity:
         description: Units returned.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -2394,7 +2394,7 @@ tables:
         - finance
       reason:
         description: wrong_size, defective, not_as_described, changed_mind, damaged_in_transit.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - changed_mind
         - damaged_in_transit
@@ -2405,7 +2405,7 @@ tables:
         - finance
       status:
         description: refunded, rejected or requested.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - refunded
         - rejected
@@ -2416,7 +2416,7 @@ tables:
         - finance
       requested_at:
         description: Request time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-09 19:50:52'
         - '2024-01-11 13:05:10'
@@ -2427,7 +2427,7 @@ tables:
         - finance
       received_at:
         description: Time the item came back (NULL if not yet).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-14 13:05:10'
         - '2024-01-15 19:50:52'
@@ -2438,7 +2438,7 @@ tables:
         - finance
       refund_id:
         description: Refund issued (or NULL).
-        type: INTEGER
+        type: INT
         examples:
         - '10'
         - '100'
@@ -2470,7 +2470,7 @@ tables:
     columns:
       courier_id:
         description: Courier id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2480,7 +2480,7 @@ tables:
         - support
       name:
         description: Courier company name (e.g. FastBox).
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - Bazaar Express
         - Bazaar Express Plus
@@ -2490,7 +2490,7 @@ tables:
         - support
       service_level:
         description: same_day, express, standard or economy.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - economy
         - express
@@ -2502,8 +2502,8 @@ tables:
         description: False for the marketplace's own fleet.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
         - support
@@ -2535,7 +2535,7 @@ tables:
     columns:
       shipment_id:
         description: Shipment id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2545,7 +2545,7 @@ tables:
         - support
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2556,7 +2556,7 @@ tables:
         references: orders.order_id
       courier_id:
         description: Courier.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2567,7 +2567,7 @@ tables:
         references: couriers.courier_id
       warehouse_id:
         description: Dispatching warehouse.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2578,7 +2578,7 @@ tables:
         references: warehouses.warehouse_id
       shipped_at_utc:
         description: Hand-over to courier (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 14:35:07'
         - '2024-01-01 15:37:09'
@@ -2598,7 +2598,7 @@ tables:
         - support
       delivered_at_utc:
         description: Delivery time (UTC); NULL if not delivered.
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-02 05:15:23'
         - '2024-01-02 10:04:27'
@@ -2608,7 +2608,7 @@ tables:
         - support
       status:
         description: delivered or in_transit.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - delivered
         - in_transit
@@ -2619,15 +2619,15 @@ tables:
         description: Shipping fee charged (BDT).
         type: DOUBLE
         examples:
-        - '120.0'
-        - '60.0'
-        - '90.0'
+        - '120'
+        - '60'
+        - '90'
         views:
         - analyst
         - support
       attempt_count:
         description: Delivery attempts.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -2659,7 +2659,7 @@ tables:
     columns:
       shipment_event_id:
         description: Event id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2669,7 +2669,7 @@ tables:
         - support
       shipment_id:
         description: Shipment.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2680,7 +2680,7 @@ tables:
         references: shipments.shipment_id
       event_type:
         description: picked_up, arrived_hub, out_for_delivery, failed_attempt or delivered.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - arrived_hub
         - delivered
@@ -2690,7 +2690,7 @@ tables:
         - support
       event_at_utc:
         description: Event time (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 14:35:07'
         - '2024-01-01 15:37:09'
@@ -2700,7 +2700,7 @@ tables:
         - support
       city_id:
         description: District where the event happened.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2711,7 +2711,7 @@ tables:
         references: cities.city_id
       note:
         description: Courier note (untrusted free text).
-        type: VARCHAR
+        type: TEXT
         examples:
         - <untrusted text>
         views:
@@ -2739,7 +2739,7 @@ tables:
     columns:
       campaign_id:
         description: Campaign id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2748,7 +2748,7 @@ tables:
         - analyst
       name:
         description: Campaign name, e.g. Boishakh25.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - AlwaysOn-facebook-202401
         - AlwaysOn-facebook-202402
@@ -2757,7 +2757,7 @@ tables:
         - analyst
       channel:
         description: Main marketing channel.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - email
         - facebook
@@ -2786,14 +2786,14 @@ tables:
         description: Budget (BDT).
         type: DOUBLE
         examples:
-        - '1003000.0'
-        - '1004000.0'
-        - '1041000.0'
+        - '1003000'
+        - '1004000'
+        - '1041000'
         views:
         - analyst
       objective:
         description: acquisition, retention, awareness or sales.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - acquisition
         - awareness
@@ -2802,7 +2802,7 @@ tables:
         - analyst
       owner_team:
         description: Owning team.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - brand
         - category
@@ -2831,7 +2831,7 @@ tables:
     columns:
       promo_id:
         description: Promotion id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2840,7 +2840,7 @@ tables:
         - analyst
       campaign_id:
         description: Campaign.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2850,7 +2850,7 @@ tables:
         references: marketing_campaigns.campaign_id
       code:
         description: Promo code.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - ALWAYS03901
         - ALWAYS03902
@@ -2859,7 +2859,7 @@ tables:
         - analyst
       promo_type:
         description: percent or flat.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - flat
         - percent
@@ -2869,23 +2869,23 @@ tables:
         description: Percent or BDT amount.
         type: DOUBLE
         examples:
-        - '10.0'
-        - '100.0'
-        - '12.0'
+        - '10'
+        - '100'
+        - '12'
         views:
         - analyst
       min_order_bdt:
         description: Minimum basket value.
         type: DOUBLE
         examples:
-        - '0.0'
-        - '1000.0'
-        - '1500.0'
+        - '0'
+        - '1000'
+        - '1500'
         views:
         - analyst
       start_at:
         description: Validity start (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 00:00:00'
         - '2024-01-03 00:00:00'
@@ -2894,7 +2894,7 @@ tables:
         - analyst
       end_at:
         description: Validity end (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-07 23:59:59'
         - '2024-01-08 23:59:59'
@@ -2903,7 +2903,7 @@ tables:
         - analyst
       max_redemptions:
         description: Redemption cap.
-        type: INTEGER
+        type: INT
         examples:
         - '1000'
         - '2000'
@@ -2933,7 +2933,7 @@ tables:
     columns:
       redemption_id:
         description: Redemption id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2942,7 +2942,7 @@ tables:
         - analyst
       promo_id:
         description: Promotion.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -2952,7 +2952,7 @@ tables:
         references: promotions.promo_id
       order_id:
         description: Order.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10004'
@@ -2962,7 +2962,7 @@ tables:
         references: orders.order_id
       customer_id:
         description: Customer.
-        type: INTEGER
+        type: INT
         examples:
         - '100'
         - '1000'
@@ -2974,14 +2974,14 @@ tables:
         description: Discount given (BDT).
         type: DOUBLE
         examples:
-        - '10.0'
+        - '10'
         - '10.44'
         - '10.5'
         views:
         - analyst
       redeemed_at:
         description: Redemption time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-01 05:01:54'
         - '2024-01-01 07:58:10'
@@ -3012,7 +3012,7 @@ tables:
     columns:
       session_id:
         description: Session id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3021,7 +3021,7 @@ tables:
         - analyst
       customer_id:
         description: Logged-in customer (NULL if anonymous).
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3031,7 +3031,7 @@ tables:
         references: customers.customer_id
       started_at_utc:
         description: Session start (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2023-12-31 18:15:59'
         - '2023-12-31 18:42:50'
@@ -3040,7 +3040,7 @@ tables:
         - analyst
       ended_at_utc:
         description: Session end (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2023-12-31 18:18:51'
         - '2023-12-31 18:44:29'
@@ -3049,7 +3049,7 @@ tables:
         - analyst
       device_type:
         description: desktop or mobile_web.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - desktop
         - mobile_web
@@ -3057,7 +3057,7 @@ tables:
         - analyst
       traffic_source:
         description: organic, direct, paid_search, social, email or referral.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - direct
         - email
@@ -3066,7 +3066,7 @@ tables:
         - analyst
       campaign_id:
         description: Campaign attributed to paid traffic (or NULL).
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3076,7 +3076,7 @@ tables:
         references: marketing_campaigns.campaign_id
       landing_page:
         description: First page type.
-        type: VARCHAR
+        type: TEXT
         examples:
         - /
         - /campaign
@@ -3085,7 +3085,7 @@ tables:
         - analyst
       pages_viewed:
         description: Pages viewed.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3096,13 +3096,13 @@ tables:
         description: Added something to the cart.
         type: BOOLEAN
         examples:
-        - 'false'
-        - 'true'
+        - '0'
+        - '1'
         views:
         - analyst
       converted_order_id:
         description: Order placed in the session (NULL if none).
-        type: INTEGER
+        type: INT
         examples:
         - '10'
         - '1000'
@@ -3135,7 +3135,7 @@ tables:
     columns:
       ticket_id:
         description: Ticket id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3145,7 +3145,7 @@ tables:
         - support
       customer_id:
         description: Customer.
-        type: INTEGER
+        type: INT
         examples:
         - '1000'
         - '1001'
@@ -3156,7 +3156,7 @@ tables:
         references: customers.customer_id
       order_id:
         description: Related order (or NULL).
-        type: INTEGER
+        type: INT
         examples:
         - '1003'
         - '10035'
@@ -3167,7 +3167,7 @@ tables:
         references: orders.order_id
       channel:
         description: chat, phone, email or facebook.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - chat
         - email
@@ -3177,7 +3177,7 @@ tables:
         - support
       category:
         description: delivery, refund, payment, product or account.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - account
         - delivery
@@ -3187,7 +3187,7 @@ tables:
         - support
       priority:
         description: low, medium, high or urgent.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - high
         - low
@@ -3197,7 +3197,7 @@ tables:
         - support
       status:
         description: open, pending, resolved or closed.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - closed
         - open
@@ -3207,7 +3207,7 @@ tables:
         - support
       created_at_utc:
         description: Creation time (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-09 11:39:38'
         - '2022-06-11 15:02:20'
@@ -3217,7 +3217,7 @@ tables:
         - support
       resolved_at_utc:
         description: Resolution time (UTC); NULL if open.
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-09 23:33:53'
         - '2022-06-11 20:11:39'
@@ -3227,7 +3227,7 @@ tables:
         - support
       agent_id:
         description: Support agent id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3256,7 +3256,7 @@ tables:
     columns:
       message_id:
         description: Message id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3265,7 +3265,7 @@ tables:
         - support
       ticket_id:
         description: Ticket.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3275,7 +3275,7 @@ tables:
         references: support_tickets.ticket_id
       sender_type:
         description: customer, agent or bot.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - agent
         - bot
@@ -3284,7 +3284,7 @@ tables:
         - support
       sent_at_utc:
         description: Send time (UTC).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2022-06-09 11:39:38'
         - '2022-06-09 13:35:18'
@@ -3293,7 +3293,7 @@ tables:
         - support
       body:
         description: Message text (untrusted).
-        type: VARCHAR
+        type: TEXT
         examples:
         - <untrusted text>
         views:
@@ -3301,7 +3301,7 @@ tables:
         untrusted: true
       language:
         description: en, bn or banglish.
-        type: VARCHAR
+        type: VARCHAR(255)
         examples:
         - banglish
         - bn
@@ -3331,7 +3331,7 @@ tables:
     columns:
       review_id:
         description: Review id.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3340,7 +3340,7 @@ tables:
         - analyst
       product_id:
         description: Reviewed product.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '10'
@@ -3350,7 +3350,7 @@ tables:
         references: products.product_id
       customer_id:
         description: Reviewer.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '100'
@@ -3360,7 +3360,7 @@ tables:
         references: customers.customer_id
       order_id:
         description: Order the review belongs to.
-        type: INTEGER
+        type: INT
         examples:
         - '10'
         - '10000'
@@ -3370,7 +3370,7 @@ tables:
         references: orders.order_id
       rating:
         description: Stars 1-5.
-        type: INTEGER
+        type: INT
         examples:
         - '1'
         - '2'
@@ -3379,7 +3379,7 @@ tables:
         - analyst
       title:
         description: Review title (untrusted).
-        type: VARCHAR
+        type: TEXT
         examples:
         - <untrusted text>
         views:
@@ -3387,7 +3387,7 @@ tables:
         untrusted: true
       body:
         description: Review text (untrusted).
-        type: VARCHAR
+        type: TEXT
         examples:
         - <untrusted text>
         views:
@@ -3395,7 +3395,7 @@ tables:
         untrusted: true
       created_at:
         description: Review time (Dhaka local).
-        type: TIMESTAMP
+        type: DATETIME
         examples:
         - '2024-01-03 13:32:49'
         - '2024-01-04 10:13:12'

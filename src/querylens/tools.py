@@ -12,10 +12,9 @@ import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
-from pathlib import Path
 from typing import Any
 
-import duckdb
+import pymysql
 from pydantic import BaseModel, Field, ValidationError
 
 from evalkit.trace import Span
@@ -29,6 +28,7 @@ from .guard import (
     cost_check,
     execute_with_timeout,
     explain_cardinality,
+    open_explain_connection,
     open_role_connection,
     role_schema,
     scan_output,
@@ -219,22 +219,29 @@ class Toolbox:
     def __init__(
         self,
         role: str,
-        db_path: str | Path,
+        size: str,
         runtime: Runtime | None = None,
         retriever: SchemaRetriever | None = None,
     ) -> None:
         self.role = role
-        self.db_path = str(db_path)
+        self.size = size
         self.rt = runtime or load_runtime()
-        self.schema: RoleSchema = role_schema(self.db_path, role)
+        self.schema: RoleSchema = role_schema(size, role)
         self.retriever = retriever or SchemaRetriever(
             role, self.rt.retriever.bm25_weight, self.rt.retriever.embedding_model
         )
-        self.con: duckdb.DuckDBPyConnection = open_role_connection(self.db_path, self.rt.sql)
+        self.con: pymysql.connections.Connection = open_role_connection(size, role, self.rt.sql)
+        self.explain_con: pymysql.connections.Connection = open_explain_connection(size, role)
         self.dictionary = load_dictionary()["tables"]
 
     def close(self) -> None:
         self.con.close()
+        self.explain_con.close()
+
+    def _q(self, sql: str) -> list[tuple[Any, ...]]:
+        with self.con.cursor() as cur:
+            cur.execute(sql)
+            return list(cur.fetchall())
 
     # ------------------------------------------------------------------ dispatch
     def call(self, name: str, raw_args: dict[str, Any]) -> ToolResult:
@@ -290,9 +297,7 @@ class Toolbox:
             else:
                 samples = [
                     _jsonable(r[0])
-                    for r in self.con.execute(
-                        f'SELECT DISTINCT "{c}" FROM "{t}" WHERE "{c}" IS NOT NULL LIMIT 3'
-                    ).fetchall()
+                    for r in self._q(f"SELECT DISTINCT `{c}` FROM `{t}` WHERE `{c}` IS NOT NULL LIMIT 3")
                 ]
             cols.append(
                 {
@@ -303,7 +308,7 @@ class Toolbox:
                     **({"references": entry["references"]} if entry.get("references") else {}),
                 }
             )
-        n = self.con.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()
+        n = self._q(f"SELECT COUNT(*) FROM `{t}`")[0]
         return ToolResult(
             "describe_table",
             {
@@ -364,12 +369,12 @@ class Toolbox:
                 "explain_sql", {}, error=f"[guard:{g.rule}] {g.message}", guard=g, meta={"guard_rule": g.rule}
             )
         try:
-            est = explain_cardinality(self.con, a.query)
-        except duckdb.Error as e:
+            est = explain_cardinality(self.explain_con, a.query)
+        except pymysql.MySQLError as e:
             return ToolResult(
                 "explain_sql",
                 {},
-                error=f"DuckDB could not plan the query: {str(e).splitlines()[0][:300]}",
+                error=f"MySQL could not plan the query: {str(e).splitlines()[0][:300]}",
                 guard=g,
             )
         warn = None
@@ -391,7 +396,7 @@ class Toolbox:
             )
         with Span("sql", "execute", sql=a.query, normalized_sql=g.normalized_sql) as s:
             try:
-                cost = cost_check(self.con, a.query, self.rt.sql)
+                cost = cost_check(self.explain_con, a.query, self.rt.sql)
                 if cost is not None:
                     s.set(rejected=cost.rule)
                     return ToolResult(
@@ -413,12 +418,10 @@ class Toolbox:
                     guard=g,
                     meta={"timed_out": True},
                 )
-            except duckdb.Error as e:
+            except pymysql.MySQLError as e:
                 msg = str(e).splitlines()[0][:300]
                 s.set(db_error=msg)
-                return ToolResult(
-                    "run_sql", {}, error=f"DuckDB error: {msg}", guard=g, meta={"db_error": msg}
-                )
+                return ToolResult("run_sql", {}, error=f"MySQL error: {msg}", guard=g, meta={"db_error": msg})
             s.set(rows_returned=len(rows), total_rows=total)
         untrusted_src = sorted(c for c in g.columns if tuple(c.split(".", 1)) in UNTRUSTED)
         if not untrusted_src:  # column lineage unknown: be conservative per table

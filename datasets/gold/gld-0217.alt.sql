@@ -1,1 +1,1 @@
-SELECT CAST(started_at_utc + INTERVAL '6 hours' AS DATE) AS dd, COUNT(converted_order_id) * 1.0 / COUNT(*) FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2025-02-01' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2025-02-28' + INTERVAL 18 HOUR GROUP BY 1 ORDER BY 1
+SELECT CAST(started_at_utc + INTERVAL 6 HOUR AS DATE) AS dd, COUNT(converted_order_id) * 1.0 / COUNT(*) FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2025-02-01 00:00:00' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2025-02-28 00:00:00' + INTERVAL 18 HOUR GROUP BY 1 ORDER BY 1
