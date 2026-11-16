@@ -184,6 +184,8 @@ const children = [
   code(["uv run streamlit run app/viewer.py --server.port 8501"]),
   p("Then open http://localhost:8501 in a browser. Type your initials in the sidebar first; nothing is saved without them."),
   table(["Tab", "What you do there"], [
+    ["Ask", "Type a question (or pick an example), choose the model config, role and size, click Ask. Shows the answer, SQL, result rows and the full trace."],
+    ["Runs", "Choose the questions (ci, dev, train, adversarial, ...), config, max items and repeats; click Start run. The run continues in the background; the table shows progress and accuracy, Refresh updates it, Resume continues a run stopped by a quota, and the report appears below."],
     ["Traces", "Pick a run, step through each trace (question, tool steps, SQL, rows, answer). Mark PASS/FAIL, write a critique, tag failure modes. Keys: P pass, F fail, N next, B back."],
     ["Gold review", "Check each item's gold SQL and result. Click Verify to set verified_by, or Flag problem with a note. Only verified items count in reported metrics."],
     ["Judge labels", "Label up to 200 items per judge (60 train, 60 dev, 80 test) for judge validation."],

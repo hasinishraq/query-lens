@@ -1,6 +1,8 @@
 """QueryLens trace viewer and annotation tool (``make viewer``).
 
 Tabs:
+0. **Ask**: ask the agent one question and see its answer, SQL and trace.
+0. **Runs**: start, follow and resume evaluation runs; read their reports.
 1. **Traces**: one trace per screen (question, steps, SQL, rows, answer); PASS/FAIL, critique, failure-mode tags.
 2. **Gold review**: the human verifies gold SQL per item (sets ``verified_by``) or flags a problem.
 3. **Judge labels**: human PASS/FAIL labels for judge validation (60 train / 60 dev / 80 test per judge).
@@ -335,11 +337,224 @@ def tab_analysis(label_store: TraceStore) -> None:
     st.download_button("Export CSV", df.to_csv(index=False), "open_coding.csv")
 
 
+CONFIGS = ROOT / "configs"
+UI_SLICES = {
+    "ci (60 fixed dev questions)": "ci",
+    "dev (342 items, all sets)": "dev",
+    "train (162 items)": "train",
+    "adversarial (150 attacks)": "adv",
+    "golden dev only": "golden:dev",
+    "ambiguous dev": "ambiguous:dev",
+    "unanswerable dev": "unanswerable:dev",
+    "Bangla dev": "bilingual_bn:dev",
+    "Banglish dev": "bilingual_banglish:dev",
+}
+
+
+def usable_configs() -> list[str]:
+    """Agent configs whose agent provider has a key (or needs none)."""
+    from querylens.config import load_config, load_providers
+
+    provs = load_providers()
+    out = []
+    for p in sorted(CONFIGS.glob("*.yaml")):
+        if p.stem in ("providers", "runtime", "prices"):
+            continue
+        try:
+            cfg = load_config(p.stem)
+        except Exception:  # noqa: BLE001 - skip configs that do not validate
+            continue
+        if provs[cfg.agent.provider].enabled and cfg.agent.provider != "ollama":
+            out.append(p.stem)
+    return out
+
+
+@st.cache_resource
+def get_agent(config: str, role: str, size: str):  # noqa: ANN201
+    from querylens.agent import Agent
+    from querylens.config import load_config
+
+    return Agent(load_config(config), role=role, size=size, store=stores()[0])
+
+
+def tab_ask(trace_store: TraceStore) -> None:
+    st.subheader("Ask the analyst agent")
+    cfgs = usable_configs()
+    if not cfgs:
+        st.error("No config has an API key. Add keys to `.env` and restart the viewer.")
+        return
+    c1, c2, c3 = st.columns(3)
+    config = c1.selectbox(
+        "Model config", cfgs, index=cfgs.index("e_gemini_lite") if "e_gemini_lite" in cfgs else 0
+    )
+    role = c2.selectbox("Role", ["analyst", "support", "finance"])
+    size = c3.selectbox("Warehouse size", ["full", "small"])
+    examples = [
+        "",
+        "What was GMV by division in 2026 Q2?",
+        "Top 5 sellers by GMV in 2025",
+        "Which courier had the highest late delivery rate in 2025?",
+        "Show monthly cancellation rate in 2025",
+        "List customer phone numbers in Dhaka",
+    ]
+    ex = st.selectbox("Example question (optional)", examples)
+    q = st.text_area("Your question", value=ex, height=80, key="ask-q")
+    if st.button("Ask", type="primary", key="ask-go", disabled=not q.strip()):
+        with st.spinner("The agent is working (free models can take 10-60 s)..."):
+            res = get_agent(config, role, size).run(q.strip(), run_id="ui-ask")
+        st.session_state["ask-trace"] = res.trace_id
+        st.session_state["ask-res"] = res.model_dump()
+    r = st.session_state.get("ask-res")
+    if r:
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("status", r["status"])
+        m2.metric("LLM calls", r["n_llm_calls"])
+        m3.metric("tokens in", r["tokens_in"])
+        m4.metric("seconds", r["latency_s"])
+        if r["clarifying_question"]:
+            st.info(f"The agent asks: {r['clarifying_question']}")
+        if r["final_text"]:
+            st.success(r["final_text"])
+        elif r["status"] == "error":
+            st.error(r["stop_reason"])
+        if r["final_sql"]:
+            st.code(r["final_sql"], language="sql")
+        if r["final_rows"]:
+            st.dataframe(pd.DataFrame(r["final_rows"]), width="stretch")
+        with st.expander("Full trace (every step)"):
+            trace_panel(trace_store, st.session_state["ask-trace"])
+
+
+def _run_progress(run_dir: Path) -> tuple[int, int]:
+    done = len(load_items(run_dir))
+    info = run_dir / "run.json"
+    planned = 0
+    if info.exists():
+        d = json.loads(info.read_text(encoding="utf-8"))
+        planned = len(d.get("item_ids", [])) * int(d.get("repeats", 1))
+    return done, planned
+
+
+def _launch(args: list[str], run_id: str) -> None:
+    import subprocess
+
+    run_dir = RESULTS / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log = open(run_dir / "ui_run.log", "a", encoding="utf-8")  # noqa: SIM115 - kept open by the child process
+    flags = 0
+    if sys.platform == "win32":
+        flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+    subprocess.Popen(
+        ["uv", "run", "evalkit", "run", *args],
+        cwd=ROOT,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        creationflags=flags,
+    )
+
+
+def tab_runs() -> None:
+    st.subheader("Start an evaluation run")
+    cfgs = usable_configs()
+    c1, c2, c3, c4 = st.columns(4)
+    slice_label = c1.selectbox("Questions", list(UI_SLICES))
+    config = c2.selectbox("Model config", cfgs, key="run-cfg")
+    limit = c3.number_input("Max items (0 = all)", min_value=0, value=0, step=10)
+    repeats = c4.number_input("Repeats", min_value=1, max_value=3, value=1)
+    judges = st.checkbox("Also run LLM judges (uses more free quota)")
+    st.caption(
+        "The test split is not offered here: frozen test runs are requested deliberately and logged "
+        "(`uv run evalkit run --slice test --frozen`)."
+    )
+    default_id = (
+        f"ui-{config}-{UI_SLICES[slice_label].replace(':', '_')}-{pd.Timestamp.now().strftime('%m%d-%H%M')}"
+    )
+    run_id = st.text_input("Run name", value=default_id)
+    if st.button("Start run", type="primary", key="run-start"):
+        if (RESULTS / run_id / "run.json").exists():
+            st.error("A run with that name exists; use Resume below or pick another name.")
+        else:
+            args = [
+                "--slice",
+                UI_SLICES[slice_label],
+                "--size",
+                "full",
+                "--config",
+                config,
+                "--repeats",
+                str(repeats),
+                "--run-id",
+                run_id,
+            ]
+            if limit:
+                args += ["--limit", str(int(limit))]
+            if judges:
+                args.append("--judges")
+            _launch(args, run_id)
+            st.success(f"Started {run_id}. It runs in the background; this page shows its progress.")
+    st.divider()
+    st.subheader("Runs")
+    runs = sorted(
+        [p for p in RESULTS.glob("*") if (p / "run.json").exists()],
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not runs:
+        st.info("No runs yet.")
+        return
+    rows = []
+    for p in runs:
+        done, planned = _run_progress(p)
+        acc = None
+        if (p / "summary.json").exists():
+            s = json.loads((p / "summary.json").read_text(encoding="utf-8"))
+            acc = (s.get("exec_accuracy") or {}).get("rate")
+        rows.append(
+            {
+                "run": p.name,
+                "done": done,
+                "planned": planned,
+                "exec accuracy": None if acc is None else round(acc, 3),
+            }
+        )
+    st.dataframe(pd.DataFrame(rows), width="stretch", hide_index=True)
+    sel = st.selectbox("Open run", [r["run"] for r in rows])
+    run_dir = RESULTS / sel
+    done, planned = _run_progress(run_dir)
+    st.progress(min(1.0, done / planned) if planned else 0.0, text=f"{done}/{planned} items")
+    b1, b2 = st.columns(2)
+    if b1.button("Refresh", key="run-refresh"):
+        st.rerun()
+    if b2.button("Resume / finish this run", key="run-resume", disabled=planned and done >= planned):
+        _launch(["--resume", sel], sel)
+        st.success("Resumed in the background.")
+    if (run_dir / "report.md").exists():
+        st.markdown((run_dir / "report.md").read_text(encoding="utf-8"))
+    else:
+        st.caption("The report appears when the run finishes (or stops on a quota limit).")
+    log = run_dir / "ui_run.log"
+    if log.exists():
+        with st.expander("Run log (last lines)"):
+            lines = [
+                x for x in log.read_text(encoding="utf-8", errors="replace").splitlines() if "httpx" not in x
+            ]
+            st.code("\n".join(lines[-30:]) or "(empty)")
+
+
 def main() -> None:
+    from dotenv import load_dotenv
+
+    load_dotenv(ROOT / ".env")
     trace_store, label_store = stores()
     st.sidebar.title("QueryLens")
     who = labeller()
-    t1, t2, t3, t4 = st.tabs(["Traces", "Gold review", "Judge labels", "Error analysis"])
+    t0, tr, t1, t2, t3, t4 = st.tabs(
+        ["Ask", "Runs", "Traces", "Gold review", "Judge labels", "Error analysis"]
+    )
+    with t0:
+        tab_ask(trace_store)
+    with tr:
+        tab_runs()
     with t1:
         tab_traces(trace_store, label_store, who)
     with t2:
