@@ -1,0 +1,1 @@
+SELECT date_trunc('month', CAST(created_at_utc + INTERVAL 6 HOUR AS DATE)) AS month, COUNT(*) FROM support_tickets WHERE CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-10-01' AND DATE '2025-12-31' GROUP BY 1 ORDER BY 1

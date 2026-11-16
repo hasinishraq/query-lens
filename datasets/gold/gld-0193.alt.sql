@@ -1,0 +1,1 @@
+SELECT CAST(captured_at_utc + INTERVAL '6 hours' AS DATE) AS d, COUNT(payment_id) FROM payments WHERE status = 'captured' AND captured_at_utc >= TIMESTAMP '2024-06-01' - INTERVAL 6 HOUR AND captured_at_utc < TIMESTAMP '2024-06-30' + INTERVAL 18 HOUR GROUP BY 1 ORDER BY 1

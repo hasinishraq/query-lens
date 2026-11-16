@@ -1,0 +1,1 @@
+SELECT (SELECT name FROM couriers c WHERE c.courier_id = s.courier_id), COUNT(s.shipment_id) FROM shipments s WHERE s.delivered_at_utc IS NOT NULL AND s.delivered_at_utc >= TIMESTAMP '2025-07-01' - INTERVAL 6 HOUR AND s.delivered_at_utc < TIMESTAMP '2025-07-31' + INTERVAL 18 HOUR GROUP BY s.courier_id

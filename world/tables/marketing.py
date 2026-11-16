@@ -104,7 +104,9 @@ def build_promotions(w: World) -> None:
         s = np.datetime64(c["start_date"], "D")
         e = np.datetime64(c["end_date"], "D")
         span = int((e - s) / DAY) + 1
-        stem = "".join(ch for ch in str(c["name"]).upper() if ch.isalnum())[:8]
+        stem = (
+            "".join(ch for ch in str(c["name"]).upper() if ch.isalnum())[:6] + f"{int(c['campaign_id']):03d}"
+        )
         for j in range(int(k)):
             ptype = "percent" if rng.random() < 0.6 else "flat"
             val = (

@@ -1,0 +1,1 @@
+SELECT AVG(epoch(resolved_at_utc) - epoch(created_at_utc)) / 3600.0 AS v FROM support_tickets WHERE resolved_at_utc IS NOT NULL AND created_at_utc >= (TIMESTAMP '2025-01-01 00:00:00' - INTERVAL 6 HOUR) AND created_at_utc < (TIMESTAMP '2025-02-01 00:00:00' - INTERVAL 6 HOUR)

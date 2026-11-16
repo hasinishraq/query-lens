@@ -1,0 +1,1 @@
+SELECT snapshot_date, COUNT(*) FILTER (WHERE on_hand_units = 0) * 1.0 / COUNT(*) FROM inventory_snapshots WHERE warehouse_id = (SELECT warehouse_id FROM warehouses WHERE name = 'Dhaka-Tejgaon') AND snapshot_date >= DATE '2026-01-01' AND snapshot_date <= DATE '2026-03-31' GROUP BY 1 ORDER BY 1

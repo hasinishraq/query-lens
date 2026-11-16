@@ -1,0 +1,1 @@
+SELECT b.is_local, AVG(r.rating) FROM product_reviews r JOIN products p ON p.product_id = r.product_id JOIN brands b ON b.brand_id = p.brand_id WHERE NOT p.is_deleted AND CAST(r.created_at AS DATE) BETWEEN DATE '2026-04-01' AND DATE '2026-06-30' GROUP BY 1

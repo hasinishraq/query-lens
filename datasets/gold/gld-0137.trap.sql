@@ -1,0 +1,1 @@
+SELECT SUM(o.total_amount) FROM orders o WHERE o.currency = 'USD' AND NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-07-01' AND DATE '2026-09-30'

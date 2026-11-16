@@ -1,0 +1,1 @@
+SELECT COUNT(DISTINCT CASE WHEN oi.is_gift THEN o.order_id END) * 1.0 / COUNT(DISTINCT o.order_id) FROM orders o JOIN order_items oi USING (order_id) WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-10-01 00:00:00' AND o.order_at < TIMESTAMP '2026-01-01 00:00:00'

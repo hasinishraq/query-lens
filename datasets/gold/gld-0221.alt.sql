@@ -1,0 +1,1 @@
+SELECT CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) AS dd, COUNT(*) FILTER (WHERE status = 'captured') * 1.0 / COUNT(*) FILTER (WHERE status IN ('captured', 'failed')) AS success FROM payments WHERE method = 'bkash' AND created_at_utc >= TIMESTAMP '2025-08-01' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '2025-08-31' + INTERVAL 18 HOUR GROUP BY dd ORDER BY 1

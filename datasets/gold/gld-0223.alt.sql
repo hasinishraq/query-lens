@@ -1,0 +1,1 @@
+SELECT COUNT(*) FILTER (WHERE status = 'captured') * 1.0 / COUNT(*) FILTER (WHERE status IN ('captured', 'failed')) FROM payments WHERE method = 'bkash' AND created_at_utc >= TIMESTAMP '2025-08-12' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '2025-08-14' + INTERVAL 18 HOUR

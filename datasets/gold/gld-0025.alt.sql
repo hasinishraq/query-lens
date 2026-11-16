@@ -1,0 +1,1 @@
+SELECT COUNT(*) AS v FROM (SELECT DISTINCT o.customer_id FROM orders o WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-01-01 00:00:00' AND o.order_at < TIMESTAMP '2025-02-01 00:00:00') t

@@ -1,0 +1,1 @@
+SELECT b.country = 'Bangladesh', SUM(r.rating) * 1.0 / COUNT(*) FROM product_reviews r JOIN products p USING (product_id) JOIN brands b USING (brand_id) WHERE p.is_deleted = FALSE AND r.created_at >= TIMESTAMP '2024-07-01' AND r.created_at < TIMESTAMP '2025-06-30' + INTERVAL 1 DAY GROUP BY 1

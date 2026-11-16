@@ -1,0 +1,1 @@
+SELECT SUM(CASE WHEN p.status = 'captured' THEN 1 ELSE 0 END) * 1.0 / SUM(CASE WHEN p.status IN ('captured', 'failed') THEN 1 ELSE 0 END) AS value FROM payments p WHERE CAST(p.created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-03-15' AND DATE '2025-03-15'

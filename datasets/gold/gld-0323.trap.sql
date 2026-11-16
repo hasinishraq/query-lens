@@ -1,0 +1,1 @@
+SELECT COUNT(*) * 1.0 / COUNT(DISTINCT o.customer_id) FROM orders o JOIN customer_segment_history h ON h.customer_id = o.customer_id AND h.is_current WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2024-07-01' AND DATE '2025-06-30' AND h.segment = 'vip'

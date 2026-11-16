@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN resolved_at_utc - created_at_utc <= INTERVAL 24 HOUR THEN 1.0 ELSE 0.0 END) FROM support_tickets WHERE CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-07-01' AND DATE '2025-07-31' AND resolved_at_utc IS NOT NULL

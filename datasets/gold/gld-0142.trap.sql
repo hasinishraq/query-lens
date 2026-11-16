@@ -1,0 +1,1 @@
+SELECT c.name, AVG(CASE WHEN CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) > s.promised_date THEN 1.0 ELSE 0.0 END) AS late_rate FROM shipments s JOIN couriers c ON c.courier_id = s.courier_id WHERE s.promised_date BETWEEN DATE '2026-07-01' AND DATE '2026-10-31' GROUP BY c.name ORDER BY late_rate DESC LIMIT 1

@@ -1,0 +1,1 @@
+SELECT CAST(started_at_utc AS DATE) AS day, AVG(CASE WHEN converted_order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) FROM web_sessions WHERE CAST(started_at_utc AS DATE) BETWEEN DATE '2024-09-01' AND DATE '2024-09-30' GROUP BY 1 ORDER BY 1

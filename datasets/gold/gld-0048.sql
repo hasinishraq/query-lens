@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) > s.promised_date THEN 1.0 ELSE 0.0 END) AS value FROM shipments s JOIN orders o ON o.order_id = s.order_id WHERE s.status = 'delivered' AND s.delivered_at_utc IS NOT NULL AND NOT o.is_deleted AND CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2026-10-15' AND DATE '2026-10-31'

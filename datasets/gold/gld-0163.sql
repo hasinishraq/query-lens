@@ -1,0 +1,1 @@
+SELECT w.name, AVG(CASE WHEN s.on_hand_units = 0 THEN 1.0 ELSE 0.0 END) AS stockout_rate FROM inventory_snapshots s JOIN warehouses w ON w.warehouse_id = s.warehouse_id WHERE s.snapshot_date BETWEEN DATE '2026-01-01' AND DATE '2026-10-31' GROUP BY w.name ORDER BY stockout_rate DESC

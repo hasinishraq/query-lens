@@ -44,7 +44,11 @@ jobs:
             uv run evalkit run --slice dev --size full --repeats 3 --config b_mistral --judges
           fi
       - name: red team
-        run: npx --yes promptfoo@latest redteam run -c redteam/promptfooconfig.yaml || true
+        env:
+          PROMPTFOO_PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: cd redteam && npx --yes promptfoo@0.125.1 redteam run -c promptfooconfig.yaml
+      - name: adversarial slice
+        run: uv run evalkit run --slice adv --size full --repeats 1 --config b_mistral
       - uses: actions/upload-artifact@v4
         if: always()
         with:

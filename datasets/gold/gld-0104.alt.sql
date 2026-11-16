@@ -1,0 +1,1 @@
+SELECT SUM(CASE WHEN is_active THEN 1 ELSE 0 END) FROM warehouses

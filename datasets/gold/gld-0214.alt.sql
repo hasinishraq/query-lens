@@ -1,0 +1,1 @@
+SELECT c.signup_month, COUNT(c.customer_id) FROM customers c WHERE c.is_deleted = FALSE AND c.signup_month >= DATE '2026-04-01' AND c.signup_month <= DATE '2026-06-30' GROUP BY c.signup_month ORDER BY 1

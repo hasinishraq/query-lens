@@ -1,0 +1,1 @@
+SELECT w.name, AVG(CASE WHEN s.on_hand_units = 0 THEN 1.0 ELSE 0.0 END) FROM inventory_snapshots s JOIN warehouses w ON w.warehouse_id = s.warehouse_id WHERE w.name IN ('Gazipur-1', 'Gazipur-2') AND s.snapshot_date BETWEEN DATE '2025-01-01' AND DATE '2025-12-31' GROUP BY 1

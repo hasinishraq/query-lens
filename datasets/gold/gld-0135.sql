@@ -1,0 +1,1 @@
+SELECT SUM(o.total_amount * cr.bdt_per_unit) FROM orders o LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency WHERE o.currency = 'USD' AND NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-03-31'

@@ -1,0 +1,1 @@
+SELECT (SELECT name FROM warehouses w WHERE w.warehouse_id = s.warehouse_id) AS wn, COUNT(*) FILTER (WHERE on_hand_units = 0) * 1.0 / COUNT(*) AS r FROM inventory_snapshots s WHERE s.snapshot_date >= DATE '2024-01-01' AND s.snapshot_date <= DATE '2024-12-31' GROUP BY s.warehouse_id ORDER BY r DESC

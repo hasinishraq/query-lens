@@ -1,0 +1,1 @@
+SELECT COUNT(*) FILTER (WHERE status = 'captured') * 1.0 / COUNT(*) FILTER (WHERE status IN ('captured', 'failed')) AS v FROM payments WHERE created_at_utc >= (TIMESTAMP '2025-06-08 00:00:00' - INTERVAL 6 HOUR) AND created_at_utc < (TIMESTAMP '2025-06-09 00:00:00' - INTERVAL 6 HOUR)

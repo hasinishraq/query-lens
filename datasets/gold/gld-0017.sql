@@ -1,0 +1,1 @@
+SELECT AVG(COALESCE(o.total_bdt, o.total_amount * cr.bdt_per_unit)) AS value FROM orders o LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-08-01' AND DATE '2026-08-31'

@@ -1,0 +1,1 @@
+SELECT SUM(points) FILTER (WHERE txn_type = 'redeem') AS v FROM loyalty_transactions WHERE txn_at >= TIMESTAMP '2025-10-01 00:00:00' AND txn_at < TIMESTAMP '2025-11-01 00:00:00' AND txn_type = 'redeem'

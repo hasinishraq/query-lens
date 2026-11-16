@@ -1,0 +1,1 @@
+SELECT ph.price_bdt FROM product_price_history ph JOIN product_variants v ON v.variant_id = ph.variant_id WHERE v.sku = 'BZ-00016-000038' AND ph.valid_from <= DATE '2024-10-20' AND DATE '2024-10-20' < ph.valid_to

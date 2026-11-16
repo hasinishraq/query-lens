@@ -1,0 +1,1 @@
+SELECT date_trunc('month', o.order_at) AS month, AVG(CASE WHEN o.status = 'cancelled' THEN 1.0 ELSE 0.0 END) AS rate FROM orders o WHERE NOT o.is_deleted AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-03-31' GROUP BY 1 ORDER BY 1

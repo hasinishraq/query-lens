@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id AND NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed')) THEN 1.0 ELSE 0.0 END) FROM customers c WHERE NOT c.is_deleted AND c.signup_month = DATE '2025-10-01'

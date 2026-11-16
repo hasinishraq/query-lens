@@ -1,0 +1,1 @@
+SELECT COUNT(converted_order_id) * 1.0 / COUNT(*) AS v FROM web_sessions WHERE started_at_utc >= (TIMESTAMP '2025-09-01 00:00:00' - INTERVAL 6 HOUR) AND started_at_utc < (TIMESTAMP '2025-10-01 00:00:00' - INTERVAL 6 HOUR)

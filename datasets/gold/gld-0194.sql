@@ -1,0 +1,1 @@
+SELECT CAST(captured_at_utc + INTERVAL 6 HOUR AS DATE) AS day, COUNT(*) FROM payments WHERE status = 'captured' AND CAST(captured_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-01-01' AND DATE '2025-01-31' GROUP BY 1 ORDER BY 1

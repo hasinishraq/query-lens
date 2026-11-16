@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN ws.converted_order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS value FROM web_sessions ws WHERE CAST(ws.started_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2024-07-01' AND DATE '2024-07-31'

@@ -1,0 +1,1 @@
+SELECT COUNT(session_id), COUNT(*) FILTER (WHERE added_to_cart), COUNT(*) FILTER (WHERE converted_order_id IS NOT NULL) FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2024-07-01' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2024-07-31' + INTERVAL 18 HOUR

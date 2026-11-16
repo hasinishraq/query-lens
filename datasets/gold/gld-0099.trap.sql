@@ -1,0 +1,1 @@
+SELECT COUNT(*) AS n FROM products p JOIN categories c3 ON c3.category_id = p.category_id JOIN categories c2 ON c2.category_id = c3.parent_category_id JOIN categories c1 ON c1.category_id = c2.parent_category_id WHERE c1.name = 'Electronics'

@@ -1,0 +1,1 @@
+SELECT SUM(CASE WHEN status = 'captured' THEN 1 ELSE 0 END) * 1.0 / SUM(CASE WHEN status IN ('captured', 'failed') THEN 1 ELSE 0 END) AS value FROM payments WHERE CAST(created_at_utc AS DATE) BETWEEN DATE '2024-01-01' AND DATE '2024-01-01'

@@ -1,0 +1,1 @@
+SELECT COUNT(*) FILTER (WHERE n >= 2) * 1.0 / COUNT(*) AS v FROM ( SELECT o.customer_id, COUNT(*) AS n FROM orders o WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-09-01 00:00:00' AND o.order_at < TIMESTAMP '2025-10-01 00:00:00' GROUP BY 1) t

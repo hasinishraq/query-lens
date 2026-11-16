@@ -1,0 +1,1 @@
+SELECT CAST(o.order_at AS DATE) AS day, SUM(COALESCE(o.total_bdt, o.total_amount * cr.bdt_per_unit)) AS gmv FROM orders o LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') GROUP BY 1 ORDER BY gmv DESC LIMIT 1

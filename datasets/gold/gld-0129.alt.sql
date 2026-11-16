@@ -1,0 +1,1 @@
+SELECT COUNT(*) FROM orders o WHERE o.is_deleted = FALSE AND o.order_at >= TIMESTAMP '2024-04-01 00:00:00' AND o.order_at < TIMESTAMP '2024-05-01 00:00:00' AND EXISTS (SELECT 1 FROM payments x WHERE x.order_id = o.order_id AND x.method = 'bkash' AND x.status = 'captured')

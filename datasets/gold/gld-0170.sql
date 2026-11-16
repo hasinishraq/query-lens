@@ -1,0 +1,1 @@
+SELECT ci.name, COUNT(*) AS orders FROM orders o JOIN customer_addresses a ON a.address_id = o.address_id JOIN cities ci ON ci.city_id = a.city_id WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2024-10-01' AND DATE '2024-12-31' GROUP BY ci.name ORDER BY orders DESC LIMIT 5

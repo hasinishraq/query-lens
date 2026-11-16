@@ -1,0 +1,1 @@
+SELECT CAST(strftime(created_at_utc + INTERVAL 6 HOUR, '%Y-%m-01') AS DATE), COUNT(ticket_id) FROM support_tickets WHERE created_at_utc >= TIMESTAMP '2026-01-01' - INTERVAL 6 HOUR AND created_at_utc < TIMESTAMP '2026-03-31' + INTERVAL 18 HOUR GROUP BY 1 ORDER BY 1

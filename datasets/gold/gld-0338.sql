@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN EXISTS (SELECT 1 FROM payments f WHERE f.order_id = o.order_id AND f.status = 'failed') THEN 1.0 ELSE 0.0 END) FROM orders o WHERE NOT o.is_deleted AND CAST(o.order_at AS DATE) BETWEEN DATE '2025-06-01' AND DATE '2025-06-30' AND EXISTS (SELECT 1 FROM payments c WHERE c.order_id = o.order_id AND c.status = 'captured')

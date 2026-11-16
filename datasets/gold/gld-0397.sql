@@ -1,0 +1,1 @@
+SELECT pr.code, COUNT(*) AS uses FROM orders o JOIN promotions pr ON pr.promo_id = o.promo_id WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2025-10-01' AND DATE '2025-12-31' GROUP BY pr.code ORDER BY uses DESC, pr.code LIMIT 5

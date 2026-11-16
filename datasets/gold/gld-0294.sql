@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN s.on_hand_units = 0 THEN 1.0 ELSE 0.0 END) FROM inventory_snapshots s JOIN warehouses w ON w.warehouse_id = s.warehouse_id WHERE w.name = 'Dhaka-Tejgaon' AND s.snapshot_date BETWEEN DATE '2026-04-01' AND DATE '2026-06-30'

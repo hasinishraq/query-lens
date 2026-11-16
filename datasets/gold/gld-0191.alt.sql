@@ -1,0 +1,1 @@
+SELECT traffic_source, COUNT(converted_order_id) * 1.0 / COUNT(*) AS c FROM web_sessions WHERE started_at_utc >= TIMESTAMP '2024-07-01' - INTERVAL 6 HOUR AND started_at_utc < TIMESTAMP '2024-09-30' + INTERVAL 18 HOUR GROUP BY traffic_source ORDER BY c DESC

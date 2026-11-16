@@ -1,0 +1,1 @@
+SELECT SUM(d) AS v FROM (SELECT oi.order_id, SUM(oi.discount_bdt) AS d FROM order_items oi WHERE oi.order_id IN (SELECT o.order_id FROM orders o WHERE o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2024-01-01 00:00:00' AND o.order_at < TIMESTAMP '2024-04-01 00:00:00') GROUP BY 1) t

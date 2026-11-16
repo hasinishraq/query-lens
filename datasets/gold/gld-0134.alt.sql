@@ -1,0 +1,1 @@
+SELECT SUM(o.total_amount * (SELECT bdt_per_unit FROM currency_rates x WHERE x.currency = 'USD' AND x.rate_date = CAST(o.order_at AS DATE))) FROM orders o WHERE o.currency = 'USD' AND o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned') AND o.order_at >= TIMESTAMP '2025-07-01 00:00:00' AND o.order_at < TIMESTAMP '2025-10-01 00:00:00'

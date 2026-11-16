@@ -8,6 +8,11 @@ REPEATS ?= 1
 CONFIG ?= b_mistral
 RUN ?=
 Q ?= net revenue by division in 2026 Q2
+ifeq ($(OS),Windows_NT)
+VENV_PY ?= $(CURDIR)/.venv/Scripts/python.exe
+else
+VENV_PY ?= $(CURDIR)/.venv/bin/python
+endif
 
 .PHONY: setup lint test world world-check dictionary agent viewer eval gate report redteam frontier models-check quota datasets
 
@@ -51,7 +56,7 @@ report:
 	uv run evalkit report --run $(RUN)
 
 redteam:
-	npx --yes promptfoo@latest redteam run -c redteam/promptfooconfig.yaml
+	cd redteam && PROMPTFOO_PYTHON=$(VENV_PY) npx --yes promptfoo@0.125.1 redteam run -c promptfooconfig.yaml
 	uv run evalkit run --slice adv --size $(SIZE) --repeats 1 --config $(CONFIG)
 
 frontier:

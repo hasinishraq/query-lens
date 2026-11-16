@@ -1,0 +1,1 @@
+SELECT SUM(oi.discount_bdt) AS value FROM orders o JOIN order_items oi ON oi.order_id = o.order_id WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2025-11-01' AND DATE '2025-11-30'

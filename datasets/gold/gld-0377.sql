@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN o.currency = 'USD' THEN 1.0 ELSE 0.0 END) FROM orders o WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-10-31'

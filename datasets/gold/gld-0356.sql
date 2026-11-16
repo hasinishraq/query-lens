@@ -1,0 +1,1 @@
+SELECT m.channel, COUNT(*) AS sessions, SUM(CASE WHEN ws.added_to_cart THEN 1 ELSE 0 END) AS carts, COUNT(ws.converted_order_id) AS converted FROM web_sessions ws JOIN marketing_campaigns m ON m.campaign_id = ws.campaign_id WHERE CAST(ws.started_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2026-01-01' AND DATE '2026-10-31' GROUP BY 1

@@ -1,0 +1,1 @@
+SELECT SUM(CASE WHEN o.status LIKE 'cancel%' THEN 1 ELSE 0 END) * 1.0 / COUNT(*) AS v FROM orders o WHERE o.is_deleted = FALSE AND o.order_at >= TIMESTAMP '2025-06-01 00:00:00' AND o.order_at < TIMESTAMP '2025-07-01 00:00:00'

@@ -1,0 +1,1 @@
+SELECT COUNT(DISTINCT r.order_id) * 1.0 / COUNT(DISTINCT o.order_id) FROM orders o LEFT JOIN product_reviews r USING (order_id) WHERE o.is_deleted = FALSE AND o.status = 'delivered' AND o.order_at >= TIMESTAMP '2025-05-01 00:00:00' AND o.order_at < TIMESTAMP '2025-06-01 00:00:00'

@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id AND oi.is_gift) THEN 1.0 ELSE 0.0 END) FROM orders o WHERE NOT o.is_deleted AND o.status NOT IN ('cancelled', 'canceled', 'payment_failed') AND CAST(o.order_at AS DATE) BETWEEN DATE '2026-07-01' AND DATE '2026-09-30'

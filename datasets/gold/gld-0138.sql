@@ -1,0 +1,1 @@
+SELECT c.name, COUNT(*) FROM shipments s JOIN couriers c ON c.courier_id = s.courier_id WHERE s.status = 'delivered' AND CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-07-01' AND DATE '2025-07-31' GROUP BY c.name

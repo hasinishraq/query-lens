@@ -1,0 +1,1 @@
+SELECT COUNT(*) AS sessions, SUM(CASE WHEN added_to_cart THEN 1 ELSE 0 END) AS carts, COUNT(converted_order_id) AS converted FROM web_sessions WHERE CAST(started_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2026-06-01' AND DATE '2026-06-30'

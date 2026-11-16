@@ -1,0 +1,1 @@
+SELECT traffic_source, AVG(CASE WHEN converted_order_id IS NOT NULL THEN 1.0 ELSE 0.0 END) AS conv FROM web_sessions WHERE CAST(started_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2024-07-01' AND DATE '2024-09-30' GROUP BY 1 ORDER BY conv DESC

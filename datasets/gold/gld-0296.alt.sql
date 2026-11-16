@@ -1,0 +1,1 @@
+SELECT COUNT(*) FILTER (WHERE on_hand_units = 0) * 1.0 / COUNT(*) FROM inventory_snapshots WHERE warehouse_id IN (SELECT warehouse_id FROM warehouses WHERE name = 'Gazipur-2') AND snapshot_date >= DATE '2025-10-01' AND snapshot_date <= DATE '2025-12-31'

@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN CAST(s.delivered_at_utc + INTERVAL 6 HOUR AS DATE) > s.promised_date THEN 1.0 ELSE 0.0 END) AS value FROM shipments s WHERE s.promised_date BETWEEN DATE '2026-10-02' AND DATE '2026-10-31'

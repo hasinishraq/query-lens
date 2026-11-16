@@ -1,0 +1,1 @@
+SELECT AVG(CASE WHEN o.order_id IN (SELECT order_id FROM product_reviews) THEN 1.0 ELSE 0.0 END) FROM orders o WHERE NOT o.is_deleted AND o.status = 'delivered' AND CAST(o.order_at AS DATE) BETWEEN DATE '2025-08-01' AND DATE '2025-08-31'

@@ -1,0 +1,1 @@
+SELECT SUM(CASE WHEN status = 'captured' THEN 1 ELSE 0 END) * 1.0 / SUM(CASE WHEN status IN ('captured', 'failed') THEN 1 ELSE 0 END) AS success FROM payments WHERE method = 'bkash' AND CAST(created_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-08-12' AND DATE '2025-08-14'

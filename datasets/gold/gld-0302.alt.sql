@@ -1,0 +1,1 @@
+SELECT COUNT(DISTINCT o.customer_id) * 1.0 / (SELECT COUNT(*) FROM customers WHERE is_deleted = FALSE AND signup_month = DATE '2024-04-01') FROM orders o JOIN customers c USING (customer_id) WHERE c.is_deleted = FALSE AND c.signup_month = DATE '2024-04-01' AND o.is_deleted = FALSE AND o.status IN ('delivered', 'in_transit', 'returned')

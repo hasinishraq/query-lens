@@ -1,0 +1,1 @@
+SELECT SUM(shipping_fee_bdt) FROM shipments WHERE CAST(shipped_at_utc + INTERVAL 6 HOUR AS DATE) BETWEEN DATE '2025-03-01' AND DATE '2025-03-31'

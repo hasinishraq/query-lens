@@ -1,0 +1,1 @@
+SELECT CASE WHEN currency = 'BDT' THEN total_bdt ELSE total_amount * (SELECT bdt_per_unit FROM currency_rates WHERE currency = 'USD' AND rate_date = CAST(order_at AS DATE)) END FROM orders WHERE order_id = 4019

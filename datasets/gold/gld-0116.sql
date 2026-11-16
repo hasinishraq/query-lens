@@ -1,0 +1,1 @@
+SELECT COALESCE(o.total_bdt, o.total_amount * cr.bdt_per_unit) AS total_bdt FROM orders o LEFT JOIN currency_rates cr ON cr.rate_date = CAST(o.order_at AS DATE) AND cr.currency = o.currency WHERE o.order_id = 1457

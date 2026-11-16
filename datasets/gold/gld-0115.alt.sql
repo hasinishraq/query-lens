@@ -1,0 +1,1 @@
+SELECT price_bdt FROM product_price_history WHERE variant_id = (SELECT variant_id FROM product_variants WHERE sku = 'BZ-00052-000135') AND DATE '2025-10-20' BETWEEN valid_from AND valid_to - INTERVAL 1 DAY
