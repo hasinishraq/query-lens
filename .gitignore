@@ -3,8 +3,19 @@ data/
 results/*
 !results/published/
 !results/published/**
-# Secrets
+# Environment files (secrets): never commit any of them
 .env
+.env.*
+*.env
+# the template has names only, no values; the setup guide tells you to copy it
+!.env.example
+
+# Markdown: only README.md is tracked ...
+*.md
+!README.md
+# ... plus the files the app reads at runtime (agent prompts and judge rubrics)
+!src/querylens/prompts/*.md
+!rubrics/*.md
 # Python
 __pycache__/
 *.pyc
