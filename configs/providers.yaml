@@ -1,0 +1,47 @@
+# Free-tier providers only (CLAUDE.md 7.4, rule 9). Limits change often: before each phase, read the
+# current limits from each console, update this file and run `make models-check`.
+# Model ids below are placeholders until `make models-check` confirms what each provider serves today.
+providers:
+  mistral:
+    base_url: https://api.mistral.ai/v1
+    key_env: MISTRAL_API_KEY
+    family: mistral
+    models:
+      - id: mistral-small-latest
+        limits: {rpm: 60, tpm: 500000, rpd: null, tpd: null, tokens_per_month: 1000000000}
+      - id: mistral-large-latest
+        limits: {rpm: 60, tpm: 500000, rpd: null, tpd: null, tokens_per_month: 1000000000}
+  gemini:
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    key_env: GEMINI_API_KEY
+    family: gemini
+    daily_reset_tz: America/Los_Angeles
+    models:
+      - id: gemini-flash-latest          # verify in AI Studio
+        limits: {rpm: 10, rpd: 250, tpm: 250000}
+      - id: gemini-flash-lite-latest     # verify in AI Studio
+        limits: {rpm: 15, rpd: 1000, tpm: 250000}
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    family: gpt-oss          # family of the model, not the host
+    models:
+      - id: openai/gpt-oss-120b
+        limits: {rpm: 30, rpd: 1000, tpm: 8000, tpd: 200000}
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    key_env: OPENROUTER_API_KEY
+    family: mixed
+    account_limits: {rpm: 20, rpd: 50}
+    models:
+      - id: meta-llama/llama-3.3-70b-instruct:free
+        family: llama
+        limits: {}
+  ollama:
+    base_url: http://localhost:11434/v1
+    base_url_env: OLLAMA_BASE_URL
+    key_env: null
+    family: qwen
+    models:
+      - id: qwen2.5:7b
+        limits: {}

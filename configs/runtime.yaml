@@ -1,0 +1,24 @@
+# Runtime limits shared by tools, guard and runner (no magic numbers in code).
+sql:
+  timeout_s: 10
+  memory_limit: 1GB
+  max_rows: 1000
+  explain_row_threshold: 200000   # estimated rows above this without LIMIT/aggregation are rejected
+  threads: 2
+retriever:
+  default_k: 10
+  bm25_weight: 0.5
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+llm:
+  cache_dir: .cache/llm
+  max_retries: 4
+  backoff_base_s: 1.5
+  backoff_max_s: 60
+  failures_before_fallback: 3
+  request_timeout_s: 90
+  quota_db: data/quota.sqlite
+agent:
+  repeat_call_limit: 2
+  easy_item_max_tool_calls: 12
+prompt:
+  max_system_tokens: 1500

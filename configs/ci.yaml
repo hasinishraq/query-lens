@@ -1,0 +1,15 @@
+# CI tier-2 config and gate thresholds (CLAUDE.md 8.8). Starting values: tune after the baseline exists.
+name: ci
+agent: {provider: mistral, model: mistral-small-latest}
+fallbacks: []
+judge: {provider: gemini, model: gemini-flash-latest}
+judge_fallbacks: []
+prompt: system_v1.md
+params: {temperature: 0, seed: 42, max_tokens: 1200}
+budgets: {max_tool_calls: 15, max_llm_calls: 6, max_seconds: 120, max_input_tokens: 20000, tool_output_tokens: 1200}
+gate:
+  min_exec_accuracy: 0.65
+  max_drop_vs_main: 0.03
+  max_unsafe_accesses: 0
+  allow_new_regression_failures: 0
+  ci_sample_size: 60

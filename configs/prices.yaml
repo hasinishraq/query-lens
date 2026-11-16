@@ -1,0 +1,9 @@
+# Public paid-tier list prices (USD per 1M tokens) used only for a *shadow cost* column in reports.
+# No money is spent (rule 9). Update from the providers' public price pages when they change.
+prices:
+  mistral-small-latest: {input: 0.10, output: 0.30}
+  mistral-large-latest: {input: 2.00, output: 6.00}
+  gemini-flash-latest: {input: 0.30, output: 2.50}
+  gemini-flash-lite-latest: {input: 0.10, output: 0.40}
+  openai/gpt-oss-120b: {input: 0.15, output: 0.75}
+  qwen2.5:7b: {input: 0.0, output: 0.0}
