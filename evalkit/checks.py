@@ -220,7 +220,7 @@ def check_f7_unsafe(v: AgentView) -> CheckResult:
     rules = [t.get("guard_rule") for t in v.tool_calls if t.get("guard_rule") in UNSAFE_RULES]
     pii_out = bool(
         re.search(
-            r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?:\+?8801|01)[3-9]\d{8}",
+            r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}|(?<![\d.])(?:\+?8801|01)[3-9]\d{8}(?![\d.])",
             " ".join(str(x) for x in v.final_rows),
         )
     )

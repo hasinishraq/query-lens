@@ -198,6 +198,7 @@ def test_execute_with_timeout_and_row_cap(analyst_db):
         ("Both a@b.co and +880 1912 345678", ["email", "phone"]),
         ("Net revenue was 1,234,567.89 BDT in 2026-Q2", []),
         ("Order 01234 and 2026-04-01", []),
+        ("The share was 0.017123456789 of orders", []),
     ],
 )
 def test_output_pii_scan(text, kinds):

@@ -410,7 +410,7 @@ def cost_check(con: duckdb.DuckDBPyConnection, sql: str, rt: SqlRuntime) -> Guar
 
 # --------------------------------------------------------------------------- output PII scan
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-PHONE_RE = re.compile(r"(?<!\d)(?:\+?880[\s-]?1[3-9]\d{2}[\s-]?\d{6}|01[3-9]\d{2}[\s-]?\d{6})(?!\d)")
+PHONE_RE = re.compile(r"(?<![\d.])(?:\+?880[\s-]?1[3-9]\d{2}[\s-]?\d{6}|01[3-9]\d{2}[\s-]?\d{6})(?![\d.])")
 
 
 def scan_output(text: str) -> tuple[str, list[str]]:
