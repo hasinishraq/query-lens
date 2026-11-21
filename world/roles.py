@@ -14,7 +14,7 @@ import pymysql
 from .mysqldb import ROLES, admin_connect, db_name, fetchall, role_password, role_user
 
 VIEWS_SQL = Path(__file__).resolve().parent / "views.sql"
-HOSTS = ("localhost", "127.0.0.1")
+HOSTS = ("localhost", "127.0.0.1", "%")
 
 
 def role_columns(con: pymysql.connections.Connection, database: str) -> dict[str, list[tuple[str, str]]]:

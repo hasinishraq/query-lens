@@ -1,11 +1,24 @@
+from unittest.mock import MagicMock, patch
+
 import pymysql
 import pytest
 
 from bazaar_world.mysqldb import ROLES, admin_connect, db_name, role_connect
-from bazaar_world.roles import role_columns
+from bazaar_world.roles import HOSTS, ensure_users, role_columns
 from bazaar_world.schema import TABLES
 
 PII = {(t.name, c) for t in TABLES for c in t.pii}
+
+
+def test_role_users_are_created_for_remote_action_hosts():
+    con = MagicMock()
+    cursor = con.cursor.return_value.__enter__.return_value
+
+    with patch("bazaar_world.roles.role_password", return_value="test-password"):
+        ensure_users(con)
+
+    assert "%" in HOSTS
+    assert cursor.execute.call_count == len(ROLES) * len(HOSTS) * 2
 
 
 @pytest.fixture(scope="module")
