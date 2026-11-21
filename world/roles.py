@@ -39,9 +39,10 @@ def ensure_users(con: pymysql.connections.Connection) -> None:
     with con.cursor() as cur:
         for role in ROLES:
             pw = role_password(role, create=True)
+            user = role_user(role)
             for host in HOSTS:
-                cur.execute(f"CREATE USER IF NOT EXISTS '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
-                cur.execute(f"ALTER USER '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
+                cur.execute("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", (user, host, pw))
+                cur.execute("ALTER USER %s@%s IDENTIFIED BY %s", (user, host, pw))
 
 
 def build_role_dbs(size: str) -> dict[str, str]:

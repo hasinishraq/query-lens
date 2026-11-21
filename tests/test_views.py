@@ -19,6 +19,10 @@ def test_role_users_are_created_for_remote_action_hosts():
 
     assert "%" in HOSTS
     assert cursor.execute.call_count == len(ROLES) * len(HOSTS) * 2
+    for call in cursor.execute.call_args_list:
+        assert call.args[1][0].startswith("ql_")
+        assert call.args[1][1] in HOSTS
+        assert call.args[1][2] == "test-password"
 
 
 @pytest.fixture(scope="module")
