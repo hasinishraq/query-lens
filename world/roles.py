@@ -14,7 +14,7 @@ import pymysql
 from .mysqldb import ROLES, admin_connect, db_name, fetchall, role_password, role_user
 
 VIEWS_SQL = Path(__file__).resolve().parent / "views.sql"
-HOSTS = ("localhost", "127.0.0.1")
+HOSTS = ("localhost", "127.0.0.1", "%")
 
 
 def role_columns(con: pymysql.connections.Connection, database: str) -> dict[str, list[tuple[str, str]]]:
@@ -39,9 +39,10 @@ def ensure_users(con: pymysql.connections.Connection) -> None:
     with con.cursor() as cur:
         for role in ROLES:
             pw = role_password(role, create=True)
+            user = role_user(role)
             for host in HOSTS:
-                cur.execute(f"CREATE USER IF NOT EXISTS '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
-                cur.execute(f"ALTER USER '{role_user(role)}'@'{host}' IDENTIFIED BY %s", (pw,))
+                cur.execute("CREATE USER IF NOT EXISTS %s@%s IDENTIFIED BY %s", (user, host, pw))
+                cur.execute("ALTER USER %s@%s IDENTIFIED BY %s", (user, host, pw))
 
 
 def build_role_dbs(size: str) -> dict[str, str]:
